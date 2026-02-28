@@ -5,24 +5,24 @@ import Header from '@/components/layout/Header';
 import { bidsApi, opportunitiesApi, Bid, BidDocument, ComplianceItem, RFI, Opportunity } from '@/lib/api';
 
 const STATUS_COLORS: Record<string, string> = {
-  Draft: 'bg-slate-500/20 text-slate-300 border-slate-500/30',
-  Review: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
-  Submitted: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
-  Won: 'bg-green-500/20 text-green-300 border-green-500/30',
-  Lost: 'bg-red-500/20 text-red-300 border-red-500/30',
+  draft: 'bg-slate-500/20 text-slate-300 border-slate-500/30',
+  review: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
+  submitted: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+  won: 'bg-green-500/20 text-green-300 border-green-500/30',
+  lost: 'bg-red-500/20 text-red-300 border-red-500/30',
 };
 
 const COMPLIANCE_STATUS_COLORS: Record<string, string> = {
-  Compliant: 'bg-green-500/20 text-green-400',
-  'Partial': 'bg-yellow-500/20 text-yellow-400',
-  'Non-Compliant': 'bg-red-500/20 text-red-400',
-  Pending: 'bg-slate-500/20 text-slate-400',
+  yes: 'bg-green-500/20 text-green-400',
+  partial: 'bg-yellow-500/20 text-yellow-400',
+  no: 'bg-red-500/20 text-red-400',
+  tbc: 'bg-slate-500/20 text-slate-400',
 };
 
 const RFI_PRIORITY_COLORS: Record<string, string> = {
-  High: 'bg-red-500/20 text-red-400 border-red-500/30',
-  Medium: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-  Low: 'bg-slate-500/20 text-slate-400 border-slate-500/30',
+  high: 'bg-red-500/20 text-red-400 border-red-500/30',
+  medium: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+  low: 'bg-slate-500/20 text-slate-400 border-slate-500/30',
 };
 
 type Tab = 'overview' | 'documents' | 'compliance' | 'rfis';
@@ -41,7 +41,7 @@ export default function BidsPage() {
   const [showNew, setShowNew] = useState(false);
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState('');
-  const [form, setForm] = useState<NewBidForm>({ title: '', opportunity_id: '', status: 'Draft', win_themes: '', notes: '' });
+  const [form, setForm] = useState<NewBidForm>({ title: '', opportunity_id: '', status: 'draft', win_themes: '', notes: '' });
 
   useEffect(() => {
     Promise.all([bidsApi.list().catch(() => []), opportunitiesApi.list().catch(() => [])])
@@ -69,7 +69,7 @@ export default function BidsPage() {
       const bid = await bidsApi.create({ ...form, opportunity_id: Number(form.opportunity_id) });
       setBids((prev) => [...prev, bid]);
       setShowNew(false);
-      setForm({ title: '', opportunity_id: '', status: 'Draft', win_themes: '', notes: '' });
+      setForm({ title: '', opportunity_id: '', status: 'draft', win_themes: '', notes: '' });
     } finally {
       setSaving(false);
     }
@@ -136,7 +136,7 @@ export default function BidsPage() {
                   >
                     <div className="flex items-start justify-between gap-2 mb-1">
                       <p className="text-white text-sm font-medium leading-snug">{bid.title}</p>
-                      <span className={`px-2 py-0.5 rounded text-xs font-medium border flex-shrink-0 ${STATUS_COLORS[bid.status] ?? STATUS_COLORS.Draft}`}>{bid.status}</span>
+                      <span className={`px-2 py-0.5 rounded text-xs font-medium border flex-shrink-0 ${STATUS_COLORS[bid.status] ?? STATUS_COLORS.draft}`}>{bid.status}</span>
                     </div>
                     <p className="text-slate-400 text-xs">{oppTitle(bid.opportunity_id)}</p>
                   </div>
@@ -178,7 +178,7 @@ export default function BidsPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="bg-slate-800 border border-slate-700 rounded-xl p-4">
                       <p className="text-slate-400 text-xs mb-1">Status</p>
-                      <span className={`px-2 py-1 rounded text-xs font-semibold border ${STATUS_COLORS[selected.status] ?? STATUS_COLORS.Draft}`}>{selected.status}</span>
+                      <span className={`px-2 py-1 rounded text-xs font-semibold border ${STATUS_COLORS[selected.status] ?? STATUS_COLORS.draft}`}>{selected.status}</span>
                     </div>
                     <div className="bg-slate-800 border border-slate-700 rounded-xl p-4">
                       <p className="text-slate-400 text-xs mb-1">Opportunity</p>
@@ -221,8 +221,8 @@ export default function BidsPage() {
                         <tbody>
                           {documents.map((d) => (
                             <tr key={d.id} className="border-b border-slate-700/50">
-                              <td className="px-4 py-3 text-white">{d.name}</td>
-                              <td className="px-4 py-3 text-slate-400">{d.document_type ?? '—'}</td>
+                              <td className="px-4 py-3 text-white">{d.filename}</td>
+                              <td className="px-4 py-3 text-slate-400">{d.doc_type ?? '—'}</td>
                               <td className="px-4 py-3 text-slate-400">{d.uploaded_at ? new Date(d.uploaded_at).toLocaleDateString() : '—'}</td>
                             </tr>
                           ))}
@@ -257,7 +257,7 @@ export default function BidsPage() {
                             <tr key={c.id} className="border-b border-slate-700/50">
                               <td className="px-4 py-3 text-white">{c.requirement}</td>
                               <td className="px-4 py-3">
-                                <span className={`px-2 py-1 rounded text-xs font-medium ${COMPLIANCE_STATUS_COLORS[c.status] ?? COMPLIANCE_STATUS_COLORS.Pending}`}>{c.status}</span>
+                                <span className={`px-2 py-1 rounded text-xs font-medium ${COMPLIANCE_STATUS_COLORS[c.compliance_status] ?? COMPLIANCE_STATUS_COLORS.tbc}`}>{c.compliance_status}</span>
                               </td>
                               <td className="px-4 py-3 text-slate-400 hidden md:table-cell">{c.evidence ?? '—'}</td>
                               <td className="px-4 py-3 text-slate-400 hidden lg:table-cell">{c.owner ?? '—'}</td>
@@ -282,11 +282,11 @@ export default function BidsPage() {
                     rfis.map((r) => (
                       <div key={r.id} className="bg-slate-800 border border-slate-700 rounded-xl p-4">
                         <div className="flex items-start gap-3 mb-2">
-                          <span className={`px-2 py-0.5 rounded text-xs font-medium border flex-shrink-0 ${RFI_PRIORITY_COLORS[r.priority] ?? RFI_PRIORITY_COLORS.Low}`}>{r.priority}</span>
+                          <span className={`px-2 py-0.5 rounded text-xs font-medium border flex-shrink-0 ${RFI_PRIORITY_COLORS[r.priority] ?? RFI_PRIORITY_COLORS.low}`}>{r.priority}</span>
                           <span className="text-slate-400 text-xs">{r.status}</span>
                         </div>
                         <p className="text-white text-sm">{r.question}</p>
-                        {r.response && <p className="text-slate-400 text-xs mt-2 italic">{r.response}</p>}
+                        {r.answer && <p className="text-slate-400 text-xs mt-2 italic">{r.answer}</p>}
                       </div>
                     ))
                   )}
@@ -315,7 +315,7 @@ export default function BidsPage() {
                 {opps.map((o) => <option key={o.id} value={o.id}>{o.title}</option>)}
               </select>
               <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
-                {['Draft', 'Review', 'Submitted', 'Won', 'Lost'].map((s) => <option key={s}>{s}</option>)}
+                {['draft', 'review', 'submitted', 'won', 'lost'].map((s) => <option key={s}>{s}</option>)}
               </select>
               <textarea placeholder="Win themes" value={form.win_themes} onChange={(e) => setForm({ ...form, win_themes: e.target.value })} className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 h-20 resize-none" />
               <textarea placeholder="Notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 h-20 resize-none" />

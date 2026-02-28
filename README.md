@@ -70,7 +70,7 @@ ContractGHOST/
 │   │                  # ScopeGapItem, ChecklistItem
 │   ├── schemas/       # Pydantic v2 request/response models
 │   └── routers/       # 55+ REST endpoints at /api/v1
-├── frontend/          # Next.js 14 (App Router) · TypeScript · Tailwind CSS
+├── frontend/          # Next.js 15 (App Router) · TypeScript · Tailwind CSS
 │   ├── app/           # Dashboard, Accounts, Opportunities, Bids, Estimating
 │   ├── components/    # Sidebar, Header, shared UI
 │   └── lib/api.ts     # Typed API client
@@ -81,7 +81,7 @@ ContractGHOST/
 
 | Layer | Tech |
 |-------|------|
-| Frontend | Next.js 14, TypeScript, Tailwind CSS |
+| Frontend | Next.js 15, TypeScript, Tailwind CSS |
 | Backend | Python 3.11, FastAPI, SQLAlchemy 2, Pydantic v2 |
 | Database | SQLite (dev) / PostgreSQL (prod) |
 | Auth | Role-based (Clerk/Auth0 ready) |

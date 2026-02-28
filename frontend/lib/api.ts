@@ -82,9 +82,10 @@ export interface Bid {
 export interface BidDocument {
   id: number;
   bid_id: number;
-  name: string;
-  document_type?: string;
-  url?: string;
+  filename: string;
+  doc_type?: string;
+  content_text?: string;
+  extracted_requirements?: string;
   uploaded_at?: string;
 }
 
@@ -92,20 +93,23 @@ export interface ComplianceItem {
   id: number;
   bid_id: number;
   requirement: string;
-  status: string;
+  compliance_status: string;
   evidence?: string;
   owner?: string;
-  section?: string;
+  category?: string;
+  notes?: string;
 }
 
 export interface RFI {
   id: number;
   bid_id: number;
   question: string;
+  category?: string;
   priority: string;
   status: string;
-  response?: string;
-  due_date?: string;
+  answer?: string;
+  submitted_at?: string;
+  answered_at?: string;
 }
 
 export interface EstimatingProject {
@@ -146,12 +150,12 @@ export const accountsApi = {
   list: () => request<Account[]>('/accounts'),
   create: (data: Partial<Account>) => request<Account>('/accounts', { method: 'POST', body: JSON.stringify(data) }),
   get: (id: number) => request<Account>(`/accounts/${id}`),
-  update: (id: number, data: Partial<Account>) => request<Account>(`/accounts/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  update: (id: number, data: Partial<Account>) => request<Account>(`/accounts/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   delete: (id: number) => request<void>(`/accounts/${id}`, { method: 'DELETE' }),
-  listContacts: (id: number) => request<Contact[]>(`/accounts/${id}/contacts`),
-  createContact: (id: number, data: Partial<Contact>) => request<Contact>(`/accounts/${id}/contacts`, { method: 'POST', body: JSON.stringify(data) }),
-  listTriggerSignals: (id: number) => request<TriggerSignal[]>(`/accounts/${id}/trigger-signals`),
-  createTriggerSignal: (id: number, data: Partial<TriggerSignal>) => request<TriggerSignal>(`/accounts/${id}/trigger-signals`, { method: 'POST', body: JSON.stringify(data) }),
+  listContacts: (id: number) => request<Contact[]>(`/contacts?account_id=${id}`),
+  createContact: (id: number, data: Partial<Contact>) => request<Contact>(`/contacts`, { method: 'POST', body: JSON.stringify({ ...data, account_id: id }) }),
+  listTriggerSignals: (id: number) => request<TriggerSignal[]>(`/trigger-signals?account_id=${id}`),
+  createTriggerSignal: (id: number, data: Partial<TriggerSignal>) => request<TriggerSignal>(`/trigger-signals`, { method: 'POST', body: JSON.stringify({ ...data, account_id: id }) }),
 };
 
 // ── Opportunities ──────────────────────────────────────────────────────────
@@ -160,7 +164,7 @@ export const opportunitiesApi = {
   list: () => request<Opportunity[]>('/opportunities'),
   create: (data: Partial<Opportunity>) => request<Opportunity>('/opportunities', { method: 'POST', body: JSON.stringify(data) }),
   get: (id: number) => request<Opportunity>(`/opportunities/${id}`),
-  update: (id: number, data: Partial<Opportunity>) => request<Opportunity>(`/opportunities/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  update: (id: number, data: Partial<Opportunity>) => request<Opportunity>(`/opportunities/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   delete: (id: number) => request<void>(`/opportunities/${id}`, { method: 'DELETE' }),
   qualify: (id: number, data: Partial<Qualification>) => request<Qualification>(`/opportunities/${id}/qualify`, { method: 'POST', body: JSON.stringify(data) }),
   getQualification: (id: number) => request<Qualification>(`/opportunities/${id}/qualification`),
@@ -172,7 +176,7 @@ export const bidsApi = {
   list: () => request<Bid[]>('/bids'),
   create: (data: Partial<Bid>) => request<Bid>('/bids', { method: 'POST', body: JSON.stringify(data) }),
   get: (id: number) => request<Bid>(`/bids/${id}`),
-  update: (id: number, data: Partial<Bid>) => request<Bid>(`/bids/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  update: (id: number, data: Partial<Bid>) => request<Bid>(`/bids/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   delete: (id: number) => request<void>(`/bids/${id}`, { method: 'DELETE' }),
   listDocuments: (id: number) => request<BidDocument[]>(`/bids/${id}/documents`),
   createDocument: (id: number, data: Partial<BidDocument>) => request<BidDocument>(`/bids/${id}/documents`, { method: 'POST', body: JSON.stringify(data) }),
@@ -180,7 +184,7 @@ export const bidsApi = {
   createComplianceItem: (id: number, data: Partial<ComplianceItem>) => request<ComplianceItem>(`/bids/${id}/compliance`, { method: 'POST', body: JSON.stringify(data) }),
   listRFIs: (id: number) => request<RFI[]>(`/bids/${id}/rfis`),
   createRFI: (id: number, data: Partial<RFI>) => request<RFI>(`/bids/${id}/rfis`, { method: 'POST', body: JSON.stringify(data) }),
-  generateComplianceMatrix: (id: number) => request<ComplianceItem[]>(`/bids/${id}/generate-compliance`, { method: 'POST' }),
+  generateComplianceMatrix: (id: number) => request<ComplianceItem[]>(`/bids/${id}/generate-compliance-matrix`, { method: 'POST' }),
   generateRFIs: (id: number) => request<RFI[]>(`/bids/${id}/generate-rfis`, { method: 'POST' }),
 };
 
