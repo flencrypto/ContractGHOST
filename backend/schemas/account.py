@@ -45,7 +45,7 @@ class ContactBase(BaseModel):
     account_id: int
     name: str = Field(..., max_length=255)
     role: str | None = Field(None, max_length=255)
-    email: str | None = Field(None, max_length=255)
+    email: EmailStr | None = None
     phone: str | None = Field(None, max_length=50)
     influence_level: InfluenceLevel | None = None
     notes: str | None = None
@@ -58,7 +58,7 @@ class ContactCreate(ContactBase):
 class ContactUpdate(BaseModel):
     name: str | None = Field(None, max_length=255)
     role: str | None = Field(None, max_length=255)
-    email: str | None = Field(None, max_length=255)
+    email: EmailStr | None = None
     phone: str | None = Field(None, max_length=50)
     influence_level: InfluenceLevel | None = None
     notes: str | None = None

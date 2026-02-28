@@ -40,11 +40,6 @@ class OpportunityRead(OpportunityBase):
 
 # ── QualificationScore ────────────────────────────────────────────────────────
 
-def _clamp(value: float) -> float:
-    """Clamp a score to [0, 10]."""
-    return max(0.0, min(10.0, value))
-
-
 class QualificationScoreCreate(BaseModel):
     """Input payload for the qualification scoring endpoint."""
 
