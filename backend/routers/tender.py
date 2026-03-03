@@ -1,19 +1,22 @@
 """Tender Award Intelligence router.
 
 Endpoints:
-  POST /api/v1/tenders                   – Ingest a tender award
-  GET  /api/v1/tenders                   – List tender awards (filterable by company)
-  GET  /api/v1/tenders/{id}              – Get a single tender award
-  DELETE /api/v1/tenders/{id}            – Delete a tender award
-  GET  /api/v1/tenders/score/cpi         – Compute CPI for a company
-  POST /api/v1/tenders/score/win         – Compute Win Probability Score
-  POST /api/v1/tenders/score/relationship – Compute Relationship Timing Score
+  POST /api/v1/tenders                      – Ingest a tender award
+  GET  /api/v1/tenders                      – List tender awards (filterable by company)
+  GET  /api/v1/tenders/{id}                 – Get a single tender award
+  DELETE /api/v1/tenders/{id}               – Delete a tender award
+  GET  /api/v1/tenders/score/cpi            – Compute CPI for a company
+  POST /api/v1/tenders/score/win            – Compute Win Probability Score
+  POST /api/v1/tenders/score/relationship   – Compute Relationship Timing Score
+  POST /api/v1/tenders/ai/analyze           – AI tender award analysis (Worker 2)
+  POST /api/v1/tenders/ai/pricing           – Competitive pricing model (Workers 3 + math)
 """
 
 import json
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
@@ -28,6 +31,8 @@ from backend.schemas.tender import (
     WinScoreRequest,
     WinScoreResult,
 )
+from backend.services.ai_workers import CompetitivePricingWorker, TenderAwardWorker
+from backend.services import math_service
 from backend.services import scoring
 from backend.services.scoring import _cpi_norm
 from backend.services.relationship import generate_contact_brief
@@ -242,3 +247,103 @@ async def suggest_relationship(
         what_to_avoid=brief.get("what_to_avoid", ""),
         risk_flags=brief.get("risk_flags", ""),
     )
+
+
+# ── AI Analysis Endpoints (Workers 2 & 3) ────────────────────────────────────
+
+_tender_ai_worker = TenderAwardWorker()
+_pricing_ai_worker = CompetitivePricingWorker()
+
+
+class TenderAnalyzeRequest(BaseModel):
+    company: str | None = None
+    limit: int = Field(default=20, ge=1, le=100)
+
+
+class PricingModelRequest(BaseModel):
+    contract_values: list[float]
+    mw_capacities: list[float] = []
+    regional_factor: float = Field(default=1.0, gt=0)
+    market_avg: float = Field(..., gt=0)
+
+
+@router.post(
+    "/ai/analyze",
+    summary="AI tender award analysis for a company (Worker 2)",
+)
+async def ai_analyze_tenders(payload: TenderAnalyzeRequest, db: Session = Depends(get_db)):
+    """
+    Run Worker 2 (Tender Award Analysis) over recent tender records.
+
+    Identifies pricing position, repeat-win patterns, and anomaly flags.
+    """
+    q = db.query(TenderAward).order_by(TenderAward.created_at.desc())
+    if payload.company:
+        q = q.filter(TenderAward.winning_company.ilike(f"%{payload.company}%"))
+    records = q.limit(payload.limit).all()
+
+    if not records:
+        raise HTTPException(status_code=404, detail="No tender records found for this company")
+
+    tender_data = [
+        {
+            "authority_name": r.authority_name,
+            "winning_company": r.winning_company,
+            "contract_value": float(r.contract_value) if r.contract_value else None,
+            "contract_currency": r.contract_currency,
+            "scope_summary": r.scope_summary,
+            "award_date": r.award_date,
+            "region": r.region,
+            "mw_capacity": r.mw_capacity,
+        }
+        for r in records
+    ]
+    return await _tender_ai_worker.run(tender_data=tender_data)
+
+
+@router.post(
+    "/ai/pricing",
+    summary="Competitive pricing model with deterministic math (Worker 3 + math_service)",
+)
+async def ai_pricing_model(payload: PricingModelRequest):
+    """
+    Run Worker 3 (Competitive Pricing Model) for value extraction, then apply
+    deterministic math_service calculations.
+
+    The LLM only extracts values; all arithmetic is performed by math_service.
+    """
+    if not payload.contract_values:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="contract_values must not be empty",
+        )
+
+    ai_result = await _pricing_ai_worker.run(
+        contract_values=payload.contract_values,
+        mw_capacities=payload.mw_capacities,
+        regional_factor=payload.regional_factor,
+        market_avg=payload.market_avg,
+    )
+
+    # Deterministic math layer (overrides any LLM arithmetic)
+    math_layer: dict = {}
+    try:
+        avg_value = math_service.calculate_average_contract_value(payload.contract_values)
+        math_layer["average_contract_value"] = avg_value
+        math_layer["normalized_price"] = math_service.normalize_price(avg_value, payload.regional_factor)
+        math_layer["competitive_pricing_index"] = math_service.calculate_competitive_pricing_index(
+            avg_value, payload.market_avg
+        )
+        if payload.mw_capacities:
+            avg_mw = math_service.calculate_average_contract_value(payload.mw_capacities)
+            if avg_mw > 0:
+                math_layer["price_per_mw"] = math_service.calculate_price_per_mw(avg_value, avg_mw)
+        math_layer["percentile_position"] = math_service.calculate_percentile_position(
+            avg_value, payload.contract_values
+        )
+    except ValueError as exc:
+        logger.warning("math_service calculation error: %s", exc)
+        math_layer["math_error"] = str(exc)
+
+    ai_result["math_service_results"] = math_layer
+    return ai_result
