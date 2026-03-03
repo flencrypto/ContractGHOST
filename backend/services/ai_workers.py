@@ -18,7 +18,7 @@ from typing import Any
 
 import httpx
 
-from backend.services.governance import GovernanceLogger, check_numeric_anomalies, needs_human_review
+from services.governance import GovernanceLogger, check_numeric_anomalies, needs_human_review
 
 logger = logging.getLogger("contractghost.ai_workers")
 
@@ -38,11 +38,18 @@ def _is_configured() -> bool:
 # ── Low-level API call ────────────────────────────────────────────────────────
 
 def _extract_confidence(result: dict[str, Any]) -> float:
-    """Extract confidence from a result dict, checking keys in priority order."""
+    """Extract confidence from a result dict, checking keys in priority order.
+
+    Returns 0.5 (neutral) if no numeric confidence value is found, preventing
+    a ValueError from propagating and discarding a valid parsed AI result.
+    """
     for key in ("confidence", "overall_confidence", "confidence_level"):
         val = result.get(key)
         if val is not None:
-            return float(val)
+            try:
+                return float(val)
+            except (TypeError, ValueError):
+                continue
     return 0.5
 
 
@@ -125,7 +132,9 @@ async def _call_worker(
         confidence = 0.0
     except Exception as exc:
         logger.error("%s failed: %s", worker_name, exc)
-        validation_outcome = f"error: {exc}"
+        # Sanitize: store only the exception type to avoid leaking API response
+        # details (e.g., full HTTP error bodies) into the governance log.
+        validation_outcome = f"error: {type(exc).__name__}"
         input_tokens = 0
         output_tokens = 0
         confidence = 0.0
@@ -580,3 +589,10 @@ class ImageIntelWorker:
             top_p=0.9,
             max_tokens=800,
         )
+
+
+# ── Backward compatibility aliases ────────────────────────────────────────────
+TenderAnalysisWorker = TenderAwardWorker
+PricingModelWorker = CompetitivePricingWorker
+EarningsSignalWorker = EarningsCallWorker
+BlogWorker = BlogGenerationWorker

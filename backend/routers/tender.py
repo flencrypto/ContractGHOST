@@ -16,7 +16,7 @@ import json
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
@@ -257,14 +257,14 @@ _pricing_ai_worker = CompetitivePricingWorker()
 
 class TenderAnalyzeRequest(BaseModel):
     company: str | None = None
-    limit: int = 20
+    limit: int = Field(default=20, ge=1, le=100)
 
 
 class PricingModelRequest(BaseModel):
     contract_values: list[float]
     mw_capacities: list[float] = []
-    regional_factor: float = 1.0
-    market_avg: float
+    regional_factor: float = Field(default=1.0, gt=0)
+    market_avg: float = Field(..., gt=0)
 
 
 @router.post(

@@ -19,7 +19,7 @@ import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
@@ -222,16 +222,16 @@ class OrchestrateRequest(BaseModel):
 
 
 class EarningsAnalyzeRequest(BaseModel):
-    transcript: str
+    transcript: str = Field(..., max_length=100_000)
 
 
 class RelationshipTimingRequest(BaseModel):
-    company_name: str
+    company_name: str = Field(..., max_length=500)
     events: list[dict[str, Any]] = []
 
 
 class TrendDetectRequest(BaseModel):
-    signals_text: str
+    signals_text: str = Field(..., max_length=100_000)
 
 
 @router.post(
