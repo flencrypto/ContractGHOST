@@ -1,18 +1,25 @@
 """Company intelligence router.
 
 Endpoints:
-  POST /api/v1/intel/company        – Trigger deep research on a company URL
-  GET  /api/v1/intel/companies      – List all company intelligence snapshots
-  GET  /api/v1/intel/companies/{id} – Get a full intelligence snapshot
-  DELETE /api/v1/intel/companies/{id} – Delete a snapshot
-  GET  /api/v1/intel/news           – List tracked news items
-  POST /api/v1/intel/news           – Manually add a news item
+  POST /api/v1/intel/company              – Trigger deep research on a company URL
+  GET  /api/v1/intel/companies            – List all company intelligence snapshots
+  GET  /api/v1/intel/companies/{id}       – Get a full intelligence snapshot
+  DELETE /api/v1/intel/companies/{id}     – Delete a snapshot
+  GET  /api/v1/intel/news                 – List tracked news items
+  POST /api/v1/intel/news                 – Manually add a news item
+  POST /api/v1/intel/orchestrate          – Trigger AI orchestrator for any event type
+  GET  /api/v1/intel/governance/logs      – Get recent AI governance logs
+  POST /api/v1/intel/earnings/analyze     – Analyze an earnings transcript (Worker 4)
+  POST /api/v1/intel/relationship/timing  – Relationship timing engine (Worker 6)
+  POST /api/v1/intel/trends/detect        – Signal clustering & trend detection (Worker 9)
 """
 
 import json
 import logging
+from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
@@ -25,6 +32,13 @@ from backend.schemas.intel import (
     NewsItemRead,
 )
 from backend.services import crawler, grok_client
+from backend.services.ai_workers import (
+    EarningsCallWorker,
+    RelationshipTimingWorker,
+    TrendDetectionWorker,
+)
+from backend.services.governance import GovernanceLogger
+from backend.services.orchestrator import Orchestrator
 
 logger = logging.getLogger("contractghost.intel")
 
@@ -191,3 +205,97 @@ def create_news_item(payload: NewsItemCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(obj)
     return obj
+
+
+# ── AI Orchestration Endpoints ────────────────────────────────────────────────
+
+_orchestrator = Orchestrator()
+_earnings_worker = EarningsCallWorker()
+_timing_worker = RelationshipTimingWorker()
+_trend_worker = TrendDetectionWorker()
+
+
+class OrchestrateRequest(BaseModel):
+    event_type: str
+    context: dict[str, Any] = {}
+    event_id: str | None = None
+
+
+class EarningsAnalyzeRequest(BaseModel):
+    transcript: str
+
+
+class RelationshipTimingRequest(BaseModel):
+    company_name: str
+    events: list[dict[str, Any]] = []
+
+
+class TrendDetectRequest(BaseModel):
+    signals_text: str
+
+
+@router.post(
+    "/orchestrate",
+    summary="Trigger the AI orchestrator for any event type",
+)
+async def orchestrate(payload: OrchestrateRequest):
+    """
+    Route an event to the matching AI worker.
+
+    Supported event_type values: new_company, new_tender, new_earnings,
+    new_call, new_signal, new_image.
+    """
+    return await _orchestrator.dispatch(
+        event_type=payload.event_type,
+        context=payload.context,
+        event_id=payload.event_id,
+    )
+
+
+@router.get(
+    "/governance/logs",
+    summary="Get recent AI governance logs",
+)
+def get_governance_logs(n: int = Query(default=100, ge=1, le=1000)):
+    """Return the last *n* AI worker invocation log entries (most-recent first)."""
+    return GovernanceLogger.recent(n)
+
+
+@router.post(
+    "/earnings/analyze",
+    summary="Analyze an earnings call transcript (Worker 4)",
+)
+async def analyze_earnings(payload: EarningsAnalyzeRequest):
+    """Extract structured signals from an earnings call transcript using Worker 4."""
+    if not payload.transcript:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="transcript is required",
+        )
+    return await _earnings_worker.run(transcript=payload.transcript)
+
+
+@router.post(
+    "/relationship/timing",
+    summary="Run relationship timing engine (Worker 6)",
+)
+async def relationship_timing(payload: RelationshipTimingRequest):
+    """Compute relationship timing score and outreach recommendation using Worker 6."""
+    return await _timing_worker.run(
+        company_name=payload.company_name,
+        events=payload.events,
+    )
+
+
+@router.post(
+    "/trends/detect",
+    summary="Signal clustering and trend detection (Worker 9)",
+)
+async def detect_trends(payload: TrendDetectRequest):
+    """Identify emerging themes and anomalies from signal data using Worker 9."""
+    if not payload.signals_text:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="signals_text is required",
+        )
+    return await _trend_worker.run(signals_context=payload.signals_text)

@@ -16,11 +16,13 @@ from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models.tender import CallIntelligence
 from backend.schemas.tender import CallIntelligenceCreate, CallIntelligenceRead
-from backend.services.transcription import analyse_transcript
+from backend.services.ai_workers import CallIntelWorker
 
 logger = logging.getLogger("contractghost.calls")
 
 router = APIRouter(prefix="/calls", tags=["Call Intelligence"])
+
+_call_intel_worker = CallIntelWorker()
 
 
 def _load_list(value: str | None) -> list[str] | None:
@@ -33,6 +35,15 @@ def _load_list(value: str | None) -> list[str] | None:
     except (json.JSONDecodeError, TypeError):
         pass
     return [value] if value else None
+
+
+def _serialise_next_steps(value) -> str | None:
+    """Normalise recommended_next_steps to a stored string value."""
+    if value is None:
+        return None
+    if isinstance(value, list):
+        return json.dumps(value)
+    return str(value)
 
 
 def _call_to_read(obj: CallIntelligence) -> CallIntelligenceRead:
@@ -73,7 +84,7 @@ async def analyse_call(payload: CallIntelligenceCreate, db: Session = Depends(ge
             detail="transcript is required for analysis",
         )
 
-    signals = await analyse_transcript(payload.transcript)
+    signals = await _call_intel_worker.run(payload.transcript)
 
     obj = CallIntelligence(
         company_name=payload.company_name,
@@ -83,9 +94,9 @@ async def analyse_call(payload: CallIntelligenceCreate, db: Session = Depends(ge
         competitor_mentions=json.dumps(signals.get("competitor_mentions") or []),
         budget_signals=json.dumps(signals.get("budget_signals") or []),
         timeline_mentions=json.dumps(signals.get("timeline_mentions") or []),
-        risk_language=json.dumps(signals.get("risk_language") or []),
-        objection_categories=json.dumps(signals.get("objection_categories") or []),
-        next_steps=signals.get("next_steps"),
+        risk_language=json.dumps(signals.get("risk_flags") or signals.get("risk_language") or []),
+        objection_categories=json.dumps(signals.get("objections") or signals.get("objection_categories") or []),
+        next_steps=_serialise_next_steps(signals.get("recommended_next_steps")),
     )
     db.add(obj)
     db.commit()
