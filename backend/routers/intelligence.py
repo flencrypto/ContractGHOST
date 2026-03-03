@@ -155,7 +155,7 @@ async def upload_photo(
 
     return save_photo_local(
         file_content=file_content,
-        filename=file.filename or "upload",
+        filename=file.filename or "upload.png",
         intelligence_id=intelligence_id,
         account_id=account_id,
         photo_type=photo_type,

@@ -54,7 +54,7 @@ _HEADERS = {
 # ── Robots.txt helpers ────────────────────────────────────────────────────────
 
 def _is_private_url(url: str) -> bool:
-    """Return True if the URL hostname resolves to a private/internal IP address."""
+    """Return True if the URL hostname resolves to any private/internal IP address."""
     try:
         parsed = urlparse(url)
         hostname = parsed.hostname
@@ -62,10 +62,14 @@ def _is_private_url(url: str) -> bool:
             return True
         if hostname.lower() == "localhost":
             return True
-        # Resolve hostname to IP and check against private ranges
-        ip_str = socket.gethostbyname(hostname)
-        ip = ipaddress.ip_address(ip_str)
-        return any(ip in net for net in _PRIVATE_NETWORKS)
+        # Resolve all addresses for the hostname and reject if any is private
+        results = socket.getaddrinfo(hostname, None)
+        for result in results:
+            ip_str = result[4][0]
+            ip = ipaddress.ip_address(ip_str)
+            if any(ip in net for net in _PRIVATE_NETWORKS):
+                return True
+        return False
     except Exception:
         return True  # Reject on resolution error
 
@@ -487,7 +491,7 @@ def save_photo_local(
     upload_path.mkdir(parents=True, exist_ok=True)
 
     # Guard against path traversal: strip directory components then sanitize
-    bare_name = os.path.basename(filename)
+    bare_name = Path(filename).name
     safe_name = re.sub(r"[^\w.\-]", "_", bare_name)
     if not safe_name or safe_name in {".", ".."}:
         safe_name = "upload"
