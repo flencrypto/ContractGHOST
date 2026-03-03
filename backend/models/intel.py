@@ -173,3 +173,46 @@ class UploadedPhoto(Base):
     uploaded_at: Mapped[datetime] = mapped_column(
         DateTime, default=func.now(), server_default=func.now()
     )
+
+
+class AIInvocationLog(Base):
+    """Persisted audit record for every AI model invocation."""
+
+    __tablename__ = "ai_invocation_log"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    prompt_hash: Mapped[str] = mapped_column(String(16), nullable=False)
+    model_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    task_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    temperature: Mapped[float] = mapped_column(nullable=False)
+    top_p: Mapped[float] = mapped_column(nullable=False)
+    input_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    output_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    confidence_score: Mapped[float] = mapped_column(nullable=False, default=0.0)
+    validation_outcome: Mapped[str] = mapped_column(String(32), nullable=False, default="pass")
+    needs_review: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    review_reasons: Mapped[str | None] = mapped_column(Text, nullable=True)
+    anomalies: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), nullable=False
+    )
+
+
+class HumanReviewItem(Base):
+    """Queue of AI outputs that require human review before surfacing."""
+
+    __tablename__ = "human_review_items"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    source_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    task_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    confidence_score: Mapped[float] = mapped_column(nullable=False, default=0.0)
+    reasons: Mapped[str] = mapped_column(Text, nullable=False)
+    payload: Mapped[str | None] = mapped_column(Text, nullable=True)
+    resolved: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    resolved_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), nullable=False
+    )
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
