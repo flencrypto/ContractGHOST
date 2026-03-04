@@ -24,7 +24,7 @@ from backend.database import get_db
 from backend.models.intel import UploadedPhoto
 from backend.schemas.intel import UploadedPhotoRead
 
-logger = logging.getLogger("contractghost.uploads")
+logger = logging.getLogger("align.uploads")
 
 router = APIRouter(prefix="/uploads", tags=["Uploads"])
 

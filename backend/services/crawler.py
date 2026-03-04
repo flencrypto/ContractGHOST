@@ -11,12 +11,12 @@ from urllib.parse import urlparse
 
 import httpx
 
-logger = logging.getLogger("contractghost.crawler")
+logger = logging.getLogger("align.crawler")
 
 _TIMEOUT = 20.0
 _MAX_TEXT_LEN = 8000
 _HEADERS = {
-    "User-Agent": "ContractGHOST-Intel/1.0 (institutional research; contact admin@contractghost.com)",
+    "User-Agent": "aLiGN-Intel/1.0 (institutional research; contact admin@align.com)",
     "Accept": "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
     "Accept-Language": "en-GB,en;q=0.5",
 }

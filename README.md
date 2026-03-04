@@ -1,10 +1,10 @@
-# ContractGHOST
+# aLiGN
 
 **AI-native Bid + Delivery OS for Data Centre Refurbs & New Builds**
 
 > "Win more DC projects with less bid pain."
 
-ContractGHOST replaces your messy stack of spreadsheets, email chains, SharePoint folders, and tribal knowledge with a structured, AI-assisted platform that guides every deal from `Target → Lead → Qualified → Bid → Win → Deliver → Expand`.
+aLiGN replaces your messy stack of spreadsheets, email chains, SharePoint folders, and tribal knowledge with a structured, AI-assisted platform that guides every deal from `Target → Lead → Qualified → Bid → Win → Deliver → Expand`.
 
 ---
 
@@ -62,7 +62,7 @@ npm run dev
 ## 🏗️ Architecture
 
 ```
-ContractGHOST/
+aLiGN/
 ├── backend/           # Python · FastAPI · SQLAlchemy (SQLite → Postgres)
 │   ├── models/        # Account, Contact, TriggerSignal, Opportunity,
 │   │                  # QualificationScore, Bid, BidDocument,

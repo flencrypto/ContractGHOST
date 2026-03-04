@@ -12,7 +12,7 @@ from typing import Any
 
 import httpx
 
-logger = logging.getLogger("contractghost.grok")
+logger = logging.getLogger("align.grok")
 
 _BASE_URL = "https://api.x.ai/v1"
 _MODEL = "grok-3-mini"

@@ -51,7 +51,7 @@ export default function Sidebar() {
         {/* Logo */}
         <div className="flex items-center gap-2 px-5 py-5 border-b border-slate-700">
           <span className="text-2xl">👻</span>
-          <span className="text-white font-bold text-lg tracking-tight">ContractGHOST</span>
+          <span className="text-white font-bold text-lg tracking-tight">aLiGN</span>
         </div>
 
         {/* Nav */}

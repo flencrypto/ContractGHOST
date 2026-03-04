@@ -9,7 +9,7 @@ from typing import Optional
 
 from backend.services import grok_client
 
-logger = logging.getLogger("contractghost.relationship")
+logger = logging.getLogger("align.relationship")
 
 _BRIEF_PROMPT = """
 You are a strategic business development advisor.

@@ -37,7 +37,7 @@ from backend.services import scoring
 from backend.services.scoring import _cpi_norm
 from backend.services.relationship import generate_contact_brief
 
-logger = logging.getLogger("contractghost.tender")
+logger = logging.getLogger("align.tender")
 
 router = APIRouter(prefix="/tenders", tags=["Tender Intelligence"])
 

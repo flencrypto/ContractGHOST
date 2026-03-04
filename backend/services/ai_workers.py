@@ -20,7 +20,7 @@ import httpx
 
 from services.governance import GovernanceLogger, check_numeric_anomalies, needs_human_review
 
-logger = logging.getLogger("contractghost.ai_workers")
+logger = logging.getLogger("align.ai_workers")
 
 _BASE_URL = "https://api.x.ai/v1"
 _DEFAULT_MODEL = os.getenv("AI_FALLBACK_MODEL", "grok-3-mini")

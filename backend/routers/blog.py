@@ -27,7 +27,7 @@ from backend.schemas.intel import (
 )
 from backend.services import grok_client
 
-logger = logging.getLogger("contractghost.blog")
+logger = logging.getLogger("align.blog")
 
 router = APIRouter(prefix="/blog", tags=["Blog"])
 

@@ -10,7 +10,7 @@ import os
 
 from backend.services import grok_client
 
-logger = logging.getLogger("contractghost.transcription")
+logger = logging.getLogger("align.transcription")
 
 _EXTRACTION_PROMPT = """
 You are a sales intelligence analyst.

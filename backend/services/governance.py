@@ -12,7 +12,7 @@ from collections import deque
 from datetime import datetime, timezone
 from typing import Any
 
-logger = logging.getLogger("contractghost.governance")
+logger = logging.getLogger("align.governance")
 
 # In-memory circular buffer (last 1 000 entries)
 _LOG_BUFFER: deque[dict[str, Any]] = deque(maxlen=1000)

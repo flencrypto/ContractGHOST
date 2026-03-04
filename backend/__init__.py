@@ -1,1 +1,1 @@
-"""Backend package for ContractGHOST."""
+"""Backend package for aLiGN."""
