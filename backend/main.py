@@ -1,5 +1,5 @@
 """
-ContractGHOST – FastAPI application entry point.
+aLiGN – FastAPI application entry point.
 
 Starts the API server, registers middleware, mounts all routers,
 and initialises the database schema on first run.
@@ -27,22 +27,22 @@ from backend.routers.tender import router as tender_router
 # Import all models so SQLAlchemy metadata is populated before create_all
 import backend.models  # noqa: F401
 
-logger = logging.getLogger("contractghost")
+logger = logging.getLogger("align")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Create all database tables on startup."""
-    logger.info("ContractGHOST starting – creating database tables…")
+    logger.info("aLiGN starting – creating database tables…")
     Base.metadata.create_all(bind=engine)
     logger.info("Database ready.")
     yield
-    logger.info("ContractGHOST shutting down.")
+    logger.info("aLiGN shutting down.")
 
 
 app = FastAPI(
-    title="ContractGHOST API",
+    title="aLiGN API",
     description=(
         "AI-native Bid + Delivery OS for Data Centre Refurbs & New Builds. "
         "Provides account intelligence, opportunity qualification, bid pack "
@@ -110,4 +110,4 @@ app.include_router(calls_router, prefix="/api/v1")
 @app.get("/health", tags=["Health"], summary="Health check")
 def health_check():
     """Return 200 OK when the service is running."""
-    return {"status": "ok", "service": "contractghost"}
+    return {"status": "ok", "service": "align"}

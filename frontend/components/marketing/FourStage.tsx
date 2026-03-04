@@ -62,7 +62,7 @@ export default function FourStage() {
             </span>
           </h2>
           <p className="text-slate-400 text-lg leading-relaxed">
-            ContractGHOST structures the entire bid lifecycle — from initial
+            aLiGN structures the entire bid lifecycle — from initial
             targeting to structured delivery handover — into a single, auditable
             platform.
           </p>

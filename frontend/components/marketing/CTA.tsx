@@ -40,7 +40,7 @@ export default function CTA() {
               A new category: Bid Operating System.
             </h2>
             <p className="text-slate-400 leading-relaxed mb-4">
-              ContractGHOST isn&apos;t a CRM. It isn&apos;t a document manager.
+              aLiGN isn&apos;t a CRM. It isn&apos;t a document manager.
               It is a structured operating system — purpose-built for
               infrastructure bid teams — that enforces process, surfaces risk,
               and creates institutional knowledge.
@@ -71,7 +71,7 @@ export default function CTA() {
             Ready to take control?
           </h2>
           <p className="text-slate-400 text-lg mb-10 max-w-xl mx-auto">
-            Enter the ContractGHOST platform and start building a structured,
+            Enter the aLiGN platform and start building a structured,
             auditable bid operation.
           </p>
           <Link

@@ -18,7 +18,7 @@ from backend.models.tender import CallIntelligence
 from backend.schemas.tender import CallIntelligenceCreate, CallIntelligenceRead
 from backend.services.ai_workers import CallIntelWorker
 
-logger = logging.getLogger("contractghost.calls")
+logger = logging.getLogger("align.calls")
 
 router = APIRouter(prefix="/calls", tags=["Call Intelligence"])
 

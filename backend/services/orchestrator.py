@@ -26,7 +26,7 @@ from services.ai_workers import (
     TrendDetectionWorker,
 )
 
-logger = logging.getLogger("contractghost.orchestrator")
+logger = logging.getLogger("align.orchestrator")
 
 # ── In-memory duplicate tracker ───────────────────────────────────────────────
 # Structure: {event_type: set_of_processed_ids}

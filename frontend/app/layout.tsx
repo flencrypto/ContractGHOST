@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "ContractGHOST",
+  title: "aLiGN",
   description: "AI-native Bid + Delivery OS for Data Centre Refurbs & New Builds",
 };
 

@@ -40,7 +40,7 @@ from backend.services.ai_workers import (
 from backend.services.governance import GovernanceLogger
 from backend.services.orchestrator import Orchestrator
 
-logger = logging.getLogger("contractghost.intel")
+logger = logging.getLogger("align.intel")
 
 router = APIRouter(prefix="/intel", tags=["Intelligence"])
 

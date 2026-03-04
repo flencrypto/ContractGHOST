@@ -5,7 +5,7 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./contractghost.db")
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./align.db")
 
 # check_same_thread is only valid for SQLite
 _connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
