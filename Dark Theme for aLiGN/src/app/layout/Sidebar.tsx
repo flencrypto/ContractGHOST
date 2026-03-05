@@ -12,6 +12,11 @@ import {
   LayoutDashboard
 } from "lucide-react"
 
+<<<<<<< copilot/fix-netlify-streamlit-deployments
+=======
+import brandLogo from "../../assets/a8dcfc9a30b22c416e5510e6487c249b0d798814.png"
+
+>>>>>>> main
 const NAV_ITEMS = [
   { name: "Command Centre", path: "/", icon: LayoutDashboard },
   { name: "Account Intel", path: "/intel", icon: Activity },
