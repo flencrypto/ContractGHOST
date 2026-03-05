@@ -4,7 +4,6 @@
 # Deploys the Next.js 15 frontend from the /frontend subdirectory.
 #
 # Prerequisites (Netlify Site Settings → Environment Variables):
-<<<<<<< copilot/fix-netlify-streamlit-deployments
 #   NEXT_PUBLIC_API_URL      → URL of your deployed backend
 #                            e.g. https://api.align-dc.com/api/v1
 #
@@ -24,60 +23,26 @@
   base      = "frontend"
   command   = "npm ci && npm run build"
   publish   = ".next"
-=======
-#   NEXT_PUBLIC_API_URL   URL of your deployed backend, e.g.
-#                         https://api.yourdomain.com/api/v1
-#
-# Deploy via:
-#   1. Connect this repo to Netlify.
-#   2. Set NEXT_PUBLIC_API_URL in Netlify's environment variables.
-#   3. Netlify will auto-detect this file and build/deploy.
-# ─────────────────────────────────────────────────────────────────────────────
-
-[build]
-  # The Next.js app lives in the /frontend subdirectory.
-  base    = "frontend"
-  command = "npm ci && npm run build"
-  publish = ".next"
->>>>>>> main
 
 [build.environment]
   NODE_VERSION            = "20"
   NEXT_TELEMETRY_DISABLED = "1"
-<<<<<<< copilot/fix-netlify-streamlit-deployments
 
 # ── Next.js App Router support ───────────────────────────────────────────────
 # Full support for Server Components, Route Handlers, Middleware,
 # Image Optimisation and ISR via the official plugin.
-=======
-  # Override NEXT_PUBLIC_API_URL in Netlify UI → do not hard-code secrets here.
-
-# ── Next.js App Router support ───────────────────────────────────────────────
-# The @netlify/plugin-nextjs plugin handles:
-#   • Server Components & Route Handlers
-#   • Image Optimisation
-#   • Middleware
-#   • Incremental Static Regeneration
->>>>>>> main
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
 # ── Redirect rules ───────────────────────────────────────────────────────────
-<<<<<<< copilot/fix-netlify-streamlit-deployments
 # Belt-and-braces catch-all so direct links (/dashboard, /bids/123 etc.)
 # always hit the Next.js handler instead of 404.
-=======
-# Catch-all fallback so that any direct URL (e.g. /dashboard) returns the
-# Next.js app rather than a 404.  The plugin handles most routing; this is
-# a belt-and-braces fallback.
->>>>>>> main
 [[redirects]]
   from   = "/*"
   to     = "/.netlify/functions/___netlify-handler"
   status = 200
   force  = false
 
-<<<<<<< copilot/fix-netlify-streamlit-deployments
 # ── Headers (optional – add any you need) ────────────────────────────────────
 [[headers]]
   for = "/*"
@@ -87,13 +52,3 @@
     X-Content-Type-Options    = "nosniff"
     Referrer-Policy           = "strict-origin-when-cross-origin"
     Strict-Transport-Security = "max-age=31536000; includeSubDomains"
-=======
-# ── Headers ──────────────────────────────────────────────────────────────────
-[[headers]]
-  for = "/*"
-  [headers.values]
-    X-Frame-Options        = "DENY"
-    X-Content-Type-Options = "nosniff"
-    Referrer-Policy        = "strict-origin-when-cross-origin"
-    Permissions-Policy     = "camera=(), microphone=(), geolocation=()"
->>>>>>> main
