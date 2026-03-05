@@ -438,9 +438,15 @@ class RelationshipTimingWorker:
 
 _W7_SYSTEM = (
     "You are a sales intelligence analyst reviewing a call transcript. "
-    "Extract: sentiment_score (0-1), competitor_mentions, budget_signals, "
+    "Extract: sentiment_score (-1.0 to 1.0), competitor_mentions, budget_signals, "
     "timeline_mentions, objections, buying_signals, risk_flags, "
-    "recommended_next_steps. Use direct quotes when possible."
+    "recommended_next_steps. Use direct quotes when possible. "
+    "Also extract key_points: any mention of other companies, job roles, "
+    "job opportunities, competitor positions, or hiring discussed in the call. "
+    "For each key_point include: text (what was said), type "
+    "(one of: job_discussion, competitor_mention, company_mention, general), "
+    "mentioned_company (company name if any), "
+    "mentioned_job_title (job title if any), context (brief quote or summary)."
 )
 
 _W7_SCHEMA = {
@@ -452,6 +458,7 @@ _W7_SCHEMA = {
     "buying_signals": [],
     "risk_flags": [],
     "recommended_next_steps": [],
+    "key_points": [],
     "overall_confidence": 0.0,
     "needs_human_review": False,
 }
@@ -459,6 +466,61 @@ _W7_SCHEMA = {
 
 class CallIntelWorker:
     """Worker 7: Call Intelligence Analysis (temperature=0.1)."""
+
+    async def transcribe_audio(self, audio_data: bytes, filename: str) -> str:
+        """Attempt to transcribe audio data via the Grok API.
+
+        Falls back to an empty string when the API key is absent or the
+        request fails (the caller is responsible for raising a suitable
+        HTTP error in that case).
+        """
+        key = _api_key()
+        if not key:
+            logger.warning("transcribe_audio: XAI_API_KEY not set – cannot transcribe")
+            return ""
+
+        import base64
+        audio_b64 = base64.b64encode(audio_data).decode()
+
+        # Derive a simple MIME type from the filename extension
+        ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "mp3"
+        mime_map = {"mp3": "audio/mpeg", "wav": "audio/wav", "m4a": "audio/m4a", "ogg": "audio/ogg"}
+        mime_type = mime_map.get(ext, "audio/mpeg")
+
+        payload: dict[str, Any] = {
+            "model": _DEFAULT_MODEL,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "Transcribe the following audio recording verbatim. Return only the transcript text, no commentary.",
+                        },
+                        {
+                            "type": "audio_url",
+                            "audio_url": {"url": f"data:{mime_type};base64,{audio_b64}"},
+                        },
+                    ],
+                }
+            ],
+            "max_tokens": 4096,
+            "temperature": 0.0,
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+                resp = await client.post(
+                    f"{_BASE_URL}/chat/completions",
+                    headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+                    json=payload,
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                return data["choices"][0]["message"]["content"] or ""
+        except Exception as exc:
+            logger.error("transcribe_audio failed: %s", exc)
+            return ""
 
     async def run(self, transcript: str) -> dict[str, Any]:
         user_content = (
@@ -471,7 +533,7 @@ class CallIntelWorker:
             user_content=user_content,
             temperature=0.1,
             top_p=0.85,
-            max_tokens=1500,
+            max_tokens=2048,
         )
 
 

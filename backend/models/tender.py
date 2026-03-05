@@ -50,6 +50,7 @@ class CallIntelligence(Base):
     risk_language: Mapped[str | None] = mapped_column(Text)        # JSON array string
     objection_categories: Mapped[str | None] = mapped_column(Text) # JSON array string
     next_steps: Mapped[str | None] = mapped_column(Text)
+    key_points: Mapped[str | None] = mapped_column(Text)            # JSON array of key-point dicts
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=func.now(), server_default=func.now()
     )

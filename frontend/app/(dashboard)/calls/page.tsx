@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { callsApi, CallIntelligence } from '@/lib/api';
+import { callsApi, CallIntelligence, KeyPoint } from '@/lib/api';
 
 export default function CallsPage() {
   const [calls, setCalls] = useState<CallIntelligence[]>([]);
@@ -11,6 +11,7 @@ export default function CallsPage() {
   const [filterCompany, setFilterCompany] = useState('');
   const [showAnalyseModal, setShowAnalyseModal] = useState(false);
   const [analysing, setAnalysing] = useState(false);
+  const [linkingIndex, setLinkingIndex] = useState<number | null>(null);
 
   const [form, setForm] = useState({
     company_name: '',
@@ -68,12 +69,36 @@ export default function CallsPage() {
     }
   };
 
+  const handleLinkKeyPoint = async (pointIndex: number) => {
+    if (!selected) return;
+    setLinkingIndex(pointIndex);
+    try {
+      const updated = await callsApi.linkKeyPoint(selected.id, pointIndex);
+      setSelected(updated);
+      // Refresh list to reflect any new records
+      fetchCalls(filterCompany || undefined);
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Link failed');
+    } finally {
+      setLinkingIndex(null);
+    }
+  };
+
   const sentimentLabel = (score?: number | null) => {
     if (score == null) return { text: '—', color: 'text-slate-400' };
     if (score >= 0.5) return { text: 'Positive', color: 'text-emerald-400' };
     if (score >= 0) return { text: 'Neutral', color: 'text-blue-400' };
     if (score >= -0.5) return { text: 'Cautious', color: 'text-amber-400' };
     return { text: 'Negative', color: 'text-red-400' };
+  };
+
+  const keyPointTypeLabel = (type: KeyPoint['type']) => {
+    switch (type) {
+      case 'job_discussion': return { text: 'Job Discussion', color: 'bg-blue-600/20 text-blue-300' };
+      case 'competitor_mention': return { text: 'Competitor', color: 'bg-red-600/20 text-red-300' };
+      case 'company_mention': return { text: 'Company', color: 'bg-amber-600/20 text-amber-300' };
+      default: return { text: 'General', color: 'bg-slate-600/30 text-slate-300' };
+    }
   };
 
   const TagList = ({ items, color }: { items?: string[] | null; color: string }) => {
@@ -96,7 +121,7 @@ export default function CallsPage() {
         <div>
           <h1 className="text-xl font-bold">Call Intelligence</h1>
           <p className="text-sm text-slate-400 mt-0.5">
-            Transcribe and analyse calls to extract budget signals, competitor mentions, and next steps.
+            Transcribe and analyse calls to extract budget signals, competitor mentions, key points, and next steps.
           </p>
         </div>
         <button
@@ -156,6 +181,11 @@ export default function CallsPage() {
                       <span className="text-xs text-slate-500">
                         {call.created_at ? new Date(call.created_at).toLocaleDateString() : ''}
                       </span>
+                      {call.key_points && call.key_points.length > 0 && (
+                        <span className="text-xs bg-purple-600/30 text-purple-300 px-1.5 py-0.5 rounded">
+                          {call.key_points.length} KP
+                        </span>
+                      )}
                     </div>
                   </button>
                 );
@@ -201,6 +231,65 @@ export default function CallsPage() {
                   </div>
                 </div>
               </div>
+
+              {/* Key Points */}
+              {selected.key_points && selected.key_points.length > 0 && (
+                <div className="bg-slate-800 rounded-lg p-4">
+                  <p className="text-xs text-slate-500 uppercase tracking-wide mb-3">
+                    Key Points — Jobs, Companies &amp; Competitor Discussions
+                  </p>
+                  <div className="space-y-3">
+                    {selected.key_points.map((kp, i) => {
+                      const typeInfo = keyPointTypeLabel(kp.type);
+                      const isLinked = !!kp.linked_opportunity_id;
+                      return (
+                        <div
+                          key={i}
+                          className="border border-slate-700 rounded-lg p-3 space-y-1.5"
+                        >
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className={`text-xs px-2 py-0.5 rounded ${typeInfo.color}`}>
+                              {typeInfo.text}
+                            </span>
+                            {kp.mentioned_company && (
+                              <span className="text-xs text-slate-400">
+                                🏢 {kp.mentioned_company}
+                              </span>
+                            )}
+                            {kp.mentioned_job_title && (
+                              <span className="text-xs text-slate-400">
+                                💼 {kp.mentioned_job_title}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm text-slate-200">{kp.text}</p>
+                          {kp.context && kp.context !== kp.text && (
+                            <p className="text-xs text-slate-400 italic">{kp.context}</p>
+                          )}
+                          {isLinked ? (
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-xs text-emerald-400">
+                                ✓ Linked to Opportunity #{kp.linked_opportunity_id}
+                              </span>
+                              {kp.linked_by && (
+                                <span className="text-xs text-slate-500">by {kp.linked_by}</span>
+                              )}
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => handleLinkKeyPoint(i)}
+                              disabled={linkingIndex === i}
+                              className="mt-1 text-xs bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 px-3 py-1 rounded disabled:opacity-50"
+                            >
+                              {linkingIndex === i ? 'Linking…' : '+ Create / Link Record'}
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Signals Grid */}
               <div className="grid grid-cols-1 gap-4">

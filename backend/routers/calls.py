@@ -1,15 +1,18 @@
-"""Call Intelligence router – now with direct audio upload + Grok transcription + analysis."""
+"""Call Intelligence router – Audio + Text + Key Points extraction + Auto linking to Opportunities/Jobs."""
 
 import json
 import logging
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, Body, Depends, HTTPException, UploadFile, File, Form, status
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
+from backend.models.account import Account, AccountType
+from backend.models.opportunity import Opportunity, OpportunityStage
 from backend.models.tender import CallIntelligence
 from backend.schemas.tender import CallIntelligenceCreate, CallIntelligenceRead
 from backend.services.ai_workers import CallIntelWorker
-from backend.core.config import settings
 
 logger = logging.getLogger("align.calls")
 
@@ -17,13 +20,7 @@ router = APIRouter(prefix="/calls", tags=["Call Intelligence"])
 
 _call_intel_worker = CallIntelWorker()
 
-# Supported audio formats
-_AUDIO_ALLOWED_TYPES = {
-    "audio/mpeg", "audio/mp3",
-    "audio/wav",
-    "audio/x-m4a", "audio/m4a",
-    "audio/ogg",
-}
+_AUDIO_ALLOWED_TYPES = {"audio/mpeg", "audio/mp3", "audio/wav", "audio/x-m4a", "audio/m4a", "audio/ogg"}
 _AUDIO_MAX_BYTES = 50 * 1024 * 1024  # 50 MB
 
 
@@ -60,41 +57,36 @@ def _call_to_read(obj: CallIntelligence) -> CallIntelligenceRead:
         risk_language=_load_list(obj.risk_language),
         objection_categories=_load_list(obj.objection_categories),
         next_steps=obj.next_steps,
+        key_points=json.loads(obj.key_points) if obj.key_points else [],
         created_at=obj.created_at,
     )
 
 
-# ── ANALYSE (now accepts audio OR text) ───────────────────────────────────────
+# ── ANALYSE (audio OR text) + KEY POINTS EXTRACTION ───────────────────────────
 @router.post(
     "/analyse",
     response_model=CallIntelligenceRead,
     status_code=status.HTTP_201_CREATED,
-    summary="Upload audio OR paste transcript → Grok transcribes + analyses",
+    summary="Upload audio OR paste transcript → Grok transcribes, analyses + extracts key points",
 )
 async def analyse_call(
     file: UploadFile | None = File(None),
-    company_name: str | None = None,
-    executive_name: str | None = None,
-    transcript: str | None = None,   # fallback for text-only
+    company_name: str | None = Form(None),
+    executive_name: str | None = Form(None),
+    transcript: str | None = Form(None),
     db: Session = Depends(get_db),
 ):
-    """Upload audio file (mp3/wav/m4a) OR send transcript text.
-    Grok transcribes audio automatically, then extracts sentiment, signals, next steps, etc."""
-    
+    """Full pipeline: audio transcription → Grok analysis → key points extraction → structured record."""
+
     # ── 1. Get transcript (audio or text) ─────────────────────────────────
     if file:
         if file.content_type not in _AUDIO_ALLOWED_TYPES:
             raise HTTPException(415, f"Unsupported audio type: {file.content_type}. Use mp3/wav/m4a.")
-
         audio_data = await file.read()
         if len(audio_data) > _AUDIO_MAX_BYTES:
             raise HTTPException(413, "Audio file too large (max 50 MB)")
-
         logger.info(f"Transcribing audio file: {file.filename} ({len(audio_data)/1024/1024:.1f} MB)")
-
-        # Grok native audio transcription
-        transcript_text = await _call_intel_worker.transcribe_audio(audio_data, file.filename)
-
+        transcript_text = await _call_intel_worker.transcribe_audio(audio_data, file.filename or "call")
     elif transcript and transcript.strip():
         transcript_text = transcript.strip()
     else:
@@ -103,7 +95,7 @@ async def analyse_call(
     if not transcript_text:
         raise HTTPException(422, "Could not extract any transcript from the audio")
 
-    # ── 2. Run full analysis ───────────────────────────────────────────────
+    # ── 2. Run full Grok analysis + key points extraction ─────────────────
     logger.info(f"Running Grok analysis on {len(transcript_text)} characters")
     signals = await _call_intel_worker.run(transcript_text)
 
@@ -119,17 +111,97 @@ async def analyse_call(
         risk_language=json.dumps(signals.get("risk_flags") or signals.get("risk_language") or []),
         objection_categories=json.dumps(signals.get("objections") or signals.get("objection_categories") or []),
         next_steps=_serialise_next_steps(signals.get("recommended_next_steps")),
+        key_points=json.dumps(signals.get("key_points") or []),
     )
 
     db.add(obj)
     db.commit()
     db.refresh(obj)
 
-    logger.info(f"Call intelligence record created – ID {obj.id} (sentiment: {obj.sentiment_score})")
+    kp_count = len(signals.get("key_points") or [])
+    logger.info(f"Call record created – ID {obj.id} with {kp_count} key points")
     return _call_to_read(obj)
 
 
-# ── List, Get, Delete (unchanged but cleaned) ────────────────────────────────
+# ── LINK OR CREATE FROM KEY POINT ─────────────────────────────────────────────
+@router.post(
+    "/{call_id}/key-points/{point_index}/link",
+    response_model=CallIntelligenceRead,
+    summary="Create new Opportunity/Job OR link existing record from a key point",
+)
+async def link_key_point(
+    call_id: int,
+    point_index: int,
+    opportunity_id: int | None = Body(None, embed=True),
+    db: Session = Depends(get_db),
+):
+    """From a key point in the call, either link to an existing Opportunity or auto-create one.
+
+    Pass `opportunity_id` in the JSON body to link to an existing record.
+    Omit it to auto-create: a new Account (for the mentioned company) and
+    Opportunity are created and linked back to this key point.
+    Records who discussed it and the context of what was said.
+    """
+    call = db.get(CallIntelligence, call_id)
+    if not call:
+        raise HTTPException(404, "Call record not found")
+
+    try:
+        key_points: list[dict] = json.loads(call.key_points or "[]")
+        point = key_points[point_index]
+    except (IndexError, json.JSONDecodeError, TypeError):
+        raise HTTPException(404, "Key point not found")
+
+    if opportunity_id is not None:
+        # Link to an existing Opportunity
+        opp = db.get(Opportunity, opportunity_id)
+        if not opp:
+            raise HTTPException(404, f"Opportunity {opportunity_id} not found")
+    else:
+        # Auto-create: find or create Account for the mentioned company
+        mentioned_company = point.get("mentioned_company") or call.company_name or "Unknown"
+
+        account = (
+            db.query(Account)
+            .filter(Account.name.ilike(f"%{mentioned_company}%"))
+            .first()
+        )
+        if not account:
+            account = Account(
+                name=mentioned_company,
+                type=AccountType.enterprise,
+            )
+            db.add(account)
+            db.flush()  # get account.id without committing
+
+        title_raw = point.get("mentioned_job_title") or point.get("text") or "Discussed opportunity"
+        opp = Opportunity(
+            account_id=account.id,
+            title=str(title_raw)[:255],
+            stage=OpportunityStage.target,
+            description=(
+                f"Discussed in call with {call.executive_name or 'unknown'}.\n\n"
+                f"What was said:\n{point.get('context') or point.get('text', '')}"
+            ),
+        )
+        db.add(opp)
+        db.commit()
+        db.refresh(opp)
+
+    # Store the link back in the key point
+    key_points[point_index]["linked_opportunity_id"] = opp.id
+    key_points[point_index]["linked_by"] = call.executive_name
+    key_points[point_index]["linked_at"] = datetime.now(timezone.utc).isoformat()
+
+    call.key_points = json.dumps(key_points)
+    db.commit()
+    db.refresh(call)
+
+    logger.info(f"Linked key point {point_index} from call {call_id} → Opportunity {opp.id}")
+    return _call_to_read(call)
+
+
+# ── List, Get, Delete ─────────────────────────────────────────────────────────
 @router.get("", response_model=list[CallIntelligenceRead])
 def list_calls(
     company_name: str | None = None,
