@@ -1,0 +1,36 @@
+# ── Netlify configuration for the aLiGN Next.js frontend ──────────────────────
+#
+# Set the following environment variables in the Netlify UI (Site > Settings >
+# Environment variables) before your first deploy:
+#
+#   NEXT_PUBLIC_API_URL   URL of your deployed backend, e.g.
+#                         https://align-api.railway.app/api/v1
+#
+# Optional auth variables (only needed when AUTH_PROVIDER is set):
+#   NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+#   NEXT_PUBLIC_AUTH0_DOMAIN
+#   NEXT_PUBLIC_AUTH0_CLIENT_ID
+
+[build]
+  base    = "frontend"
+  command = "npm ci && npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION            = "20"
+  NEXT_TELEMETRY_DISABLED = "1"
+
+# The @netlify/plugin-nextjs plugin enables full Next.js features on Netlify
+# (API routes, Server Components, middleware, ISR, etc.).
+# Netlify installs it automatically — no manual npm install needed.
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# ── Redirect rules ────────────────────────────────────────────────────────────
+# Next.js handles its own routing; these rules ensure clean URLs when the
+# plugin is not handling a request.
+[[redirects]]
+  from   = "/*"
+  to     = "/index.html"
+  status = 200
+  force  = false

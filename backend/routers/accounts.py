@@ -22,6 +22,8 @@ from backend.schemas.account import (
 from backend.core.config import settings  # XAI_API_KEY lives here
 
 router = APIRouter(prefix="/accounts", tags=["Accounts"])
+contacts_router = APIRouter(prefix="/contacts", tags=["Contacts"])
+signals_router = APIRouter(prefix="/trigger-signals", tags=["TriggerSignals"])
 
 
 # ── Website Swoop (NEW – enhanced extraction) ─────────────────────────────────
@@ -159,14 +161,14 @@ def delete_account(account_id: int, db: Session = Depends(get_db)):
 
 
 # ── Contacts ──────────────────────────────────────────────────────────────────
-@router.get("/contacts", response_model=list[ContactRead])
+@contacts_router.get("", response_model=list[ContactRead])
 def list_contacts(account_id: int | None = None, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     q = db.query(Contact)
     if account_id is not None:
         q = q.filter(Contact.account_id == account_id)
     return q.offset(skip).limit(limit).all()
 
-@router.post("/contacts", response_model=ContactRead, status_code=status.HTTP_201_CREATED)
+@contacts_router.post("", response_model=ContactRead, status_code=status.HTTP_201_CREATED)
 def create_contact(payload: ContactCreate, db: Session = Depends(get_db)):
     if not db.get(Account, payload.account_id):
         raise HTTPException(status_code=404, detail="Account not found")
@@ -178,14 +180,14 @@ def create_contact(payload: ContactCreate, db: Session = Depends(get_db)):
 
 
 # ── TriggerSignals ────────────────────────────────────────────────────────────
-@router.get("/trigger-signals", response_model=list[TriggerSignalRead])
+@signals_router.get("", response_model=list[TriggerSignalRead])
 def list_signals(account_id: int | None = None, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     q = db.query(TriggerSignal)
     if account_id is not None:
         q = q.filter(TriggerSignal.account_id == account_id)
     return q.offset(skip).limit(limit).all()
 
-@router.post("/trigger-signals", response_model=TriggerSignalRead, status_code=status.HTTP_201_CREATED)
+@signals_router.post("", response_model=TriggerSignalRead, status_code=status.HTTP_201_CREATED)
 def create_signal(payload: TriggerSignalCreate, db: Session = Depends(get_db)):
     if not db.get(Account, payload.account_id):
         raise HTTPException(status_code=404, detail="Account not found")

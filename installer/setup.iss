@@ -6,7 +6,7 @@
 #define MyAppName      "aLiGN"
 #define MyAppVersion   "1.0"
 #define MyAppPublisher "aLiGN"
-#define MyAppURL       "https://github.com/flencrypto/ContractGHOST"
+#define MyAppURL       "https://github.com/flencrypto/aLiGN"
 
 [Setup]
 AppId={{1A2B3C4D-5E6F-7A8B-9C0D-E1F2A3B4C5D6}

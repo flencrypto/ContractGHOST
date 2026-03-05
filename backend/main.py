@@ -32,6 +32,7 @@ from backend.routers.uploads import router as uploads_router
 from backend.routers.calls import router as calls_router
 from backend.routers.crm import router as crm_router
 from backend.seed_data import run_seed
+from backend.core.config import settings
 
 # Import all models so SQLAlchemy metadata is populated before create_all
 import backend.models  # noqa: F401
@@ -68,9 +69,13 @@ app = FastAPI(
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
 
+# Parse the comma-separated CORS_ORIGINS setting so multiple origins are
+# supported in production (e.g. "https://app.example.com,https://preview.example.com").
+_cors_origins = [o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
