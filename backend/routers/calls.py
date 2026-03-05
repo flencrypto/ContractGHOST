@@ -1,10 +1,11 @@
-"""Call Intelligence router – Audio + Text + Key Points extraction + Auto linking to Opportunities/Jobs."""
+"""Call Intelligence router – Audio/Text + Smart Key-Point Linking with fuzzy suggest."""
 
 import json
 import logging
 from datetime import datetime, timezone
+from difflib import SequenceMatcher
 
-from fastapi import APIRouter, Body, Depends, HTTPException, UploadFile, File, Form, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, UploadFile, File, Form, status
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
@@ -23,6 +24,8 @@ _call_intel_worker = CallIntelWorker()
 _AUDIO_ALLOWED_TYPES = {"audio/mpeg", "audio/mp3", "audio/wav", "audio/x-m4a", "audio/m4a", "audio/ogg"}
 _AUDIO_MAX_BYTES = 50 * 1024 * 1024  # 50 MB
 
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _load_list(value: str | None) -> list[str] | None:
     if value is None:
@@ -60,6 +63,55 @@ def _call_to_read(obj: CallIntelligence) -> CallIntelligenceRead:
         key_points=json.loads(obj.key_points) if obj.key_points else [],
         created_at=obj.created_at,
     )
+
+
+def _opportunity_confidence(opp: Opportunity, keyword: str, company: str) -> int:
+    """Return a 0-100 confidence score for how well an Opportunity matches a key point.
+
+    Scoring breakdown:
+    - Title token overlap: up to 40 pts
+    - Title sequence similarity: up to 20 pts
+    - Company name match (account or description): up to 40 pts
+    """
+    score = 0
+
+    # Title keyword overlap (token-based)
+    kw_tokens = set(keyword.lower().split())
+    title_tokens = set(opp.title.lower().split())
+    if kw_tokens and title_tokens:
+        overlap = len(kw_tokens & title_tokens) / len(kw_tokens)
+        score += int(overlap * 40)
+
+    # Sequence similarity between keyword and title (catches partial words)
+    seq_ratio = SequenceMatcher(None, keyword.lower(), opp.title.lower()).ratio()
+    score += int(seq_ratio * 20)
+
+    # Company name match against linked account or description
+    if company:
+        company_lc = company.lower()
+        account_name = (opp.account.name if opp.account else "").lower()
+        desc = (opp.description or "").lower()
+        if company_lc in account_name or account_name in company_lc:
+            score += 40
+        elif company_lc in desc:
+            score += 20
+
+    return min(score, 99)
+
+
+def _match_reason(opp: Opportunity, keyword: str, company: str) -> str:
+    reasons = []
+    kw_tokens = set(keyword.lower().split())
+    title_tokens = set(opp.title.lower().split())
+    if kw_tokens & title_tokens:
+        reasons.append("title keyword match")
+    if company and opp.account and company.lower() in opp.account.name.lower():
+        reasons.append("same company")
+    elif company and company.lower() in (opp.description or "").lower():
+        reasons.append("company in description")
+    if not reasons:
+        reasons.append("keyword similarity")
+    return ", ".join(reasons)
 
 
 # ── ANALYSE (audio OR text) + KEY POINTS EXTRACTION ───────────────────────────
@@ -123,24 +175,105 @@ async def analyse_call(
     return _call_to_read(obj)
 
 
+# ── SMART SUGGEST: fuzzy-match existing Opportunities for a key point ─────────
+@router.get(
+    "/{call_id}/key-points/{point_index}/suggest",
+    summary="Get smart linking suggestions (fuzzy match on company + job title)",
+)
+def suggest_opportunity_links(
+    call_id: int,
+    point_index: int,
+    db: Session = Depends(get_db),
+):
+    """Return the top-3 existing Opportunities that best match a key point, plus an
+    auto-create payload pre-filled with the key point data.
+
+    Confidence is a 0-99 integer computed from title-token overlap,
+    sequence similarity, and company-name match.
+    """
+    call = db.get(CallIntelligence, call_id)
+    if not call:
+        raise HTTPException(404, "Call record not found")
+
+    try:
+        key_points: list[dict] = json.loads(call.key_points or "[]")
+        point = key_points[point_index]
+    except (IndexError, json.JSONDecodeError, TypeError):
+        raise HTTPException(404, "Key point not found")
+
+    keyword = (point.get("mentioned_job_title") or point.get("text") or "")[:80]
+    company = point.get("mentioned_company") or call.company_name or ""
+
+    # Escape SQL wildcards so user-provided text doesn't alter the LIKE pattern
+    safe_keyword = keyword[:40].replace("%", r"\%").replace("_", r"\_")
+
+    # Fetch candidates: filter by either title or description keyword match
+    candidates = (
+        db.query(Opportunity)
+        .filter(
+            Opportunity.title.ilike(f"%{safe_keyword}%", escape="\\")
+            | Opportunity.description.ilike(f"%{safe_keyword}%", escape="\\")
+        )
+        .limit(20)
+        .all()
+    )
+
+    # Score and rank candidates
+    scored = sorted(
+        [
+            {
+                "id": opp.id,
+                "title": opp.title,
+                "stage": opp.stage.value if hasattr(opp.stage, "value") else opp.stage,
+                "account_name": opp.account.name if opp.account else None,
+                "confidence": _opportunity_confidence(opp, keyword, company),
+                "match_reason": _match_reason(opp, keyword, company),
+            }
+            for opp in candidates
+        ],
+        key=lambda x: x["confidence"],
+        reverse=True,
+    )[:3]
+
+    context_quote = point.get("context") or point.get("text") or ""
+    call_date = call.created_at.date().isoformat() if call.created_at else "unknown date"
+
+    return {
+        "key_point": point,
+        "suggestions": scored,
+        "auto_create_payload": {
+            "title": keyword or "Discussed opportunity",
+            "description": (
+                f"Discussed by {call.executive_name or 'unknown'} in call on {call_date}.\n\n"
+                f"Quote: {context_quote}"
+            ),
+            "stage": "target",
+            "mentioned_company": company or None,
+            "type": point.get("type", "general"),
+        },
+    }
+
+
 # ── LINK OR CREATE FROM KEY POINT ─────────────────────────────────────────────
 @router.post(
     "/{call_id}/key-points/{point_index}/link",
     response_model=CallIntelligenceRead,
-    summary="Create new Opportunity/Job OR link existing record from a key point",
+    summary="Link to existing Opportunity or auto-create one from a key point",
 )
 async def link_key_point(
     call_id: int,
     point_index: int,
-    opportunity_id: int | None = Body(None, embed=True),
+    opportunity_id: int | None = Query(None, description="ID of an existing Opportunity to link"),
     db: Session = Depends(get_db),
 ):
-    """From a key point in the call, either link to an existing Opportunity or auto-create one.
+    """Link a key point to an existing Opportunity (pass `opportunity_id` query param)
+    or auto-create one (omit it).
 
-    Pass `opportunity_id` in the JSON body to link to an existing record.
-    Omit it to auto-create: a new Account (for the mentioned company) and
-    Opportunity are created and linked back to this key point.
-    Records who discussed it and the context of what was said.
+    Either way a full audit trail is written back to the key point:
+    - who mentioned it (executive_name)
+    - exact quote / context
+    - date, action type (linked_existing | created_new)
+    - type classification (job_discussion, competitor_mention, etc.)
     """
     call = db.get(CallIntelligence, call_id)
     if not call:
@@ -157,13 +290,16 @@ async def link_key_point(
         opp = db.get(Opportunity, opportunity_id)
         if not opp:
             raise HTTPException(404, f"Opportunity {opportunity_id} not found")
+        action = "linked_existing"
     else:
-        # Auto-create: find or create Account for the mentioned company
+        # Auto-create: find or create Account for the mentioned company, then Opportunity
         mentioned_company = point.get("mentioned_company") or call.company_name or "Unknown"
+        # Escape SQL wildcards in user-provided value
+        safe_company = mentioned_company.replace("%", r"\%").replace("_", r"\_")
 
         account = (
             db.query(Account)
-            .filter(Account.name.ilike(f"%{mentioned_company}%"))
+            .filter(Account.name.ilike(f"%{safe_company}%", escape="\\"))
             .first()
         )
         if not account:
@@ -172,32 +308,40 @@ async def link_key_point(
                 type=AccountType.enterprise,
             )
             db.add(account)
-            db.flush()  # get account.id without committing
+            db.flush()  # get account.id before committing
 
         title_raw = point.get("mentioned_job_title") or point.get("text") or "Discussed opportunity"
+        context_quote = point.get("context") or point.get("text") or ""
+        call_date = call.created_at.date().isoformat() if call.created_at else "unknown date"
+
         opp = Opportunity(
             account_id=account.id,
             title=str(title_raw)[:255],
             stage=OpportunityStage.target,
             description=(
-                f"Discussed in call with {call.executive_name or 'unknown'}.\n\n"
-                f"What was said:\n{point.get('context') or point.get('text', '')}"
+                f"Discussed by {call.executive_name or 'unknown'} in call on {call_date}.\n\n"
+                f"Quote: {context_quote}"
             ),
         )
         db.add(opp)
         db.commit()
         db.refresh(opp)
+        action = "created_new"
 
-    # Store the link back in the key point
-    key_points[point_index]["linked_opportunity_id"] = opp.id
-    key_points[point_index]["linked_by"] = call.executive_name
-    key_points[point_index]["linked_at"] = datetime.now(timezone.utc).isoformat()
+    # Write full audit trail back into the key point
+    key_points[point_index].update({
+        "linked_opportunity_id": opp.id,
+        "linked_by": call.executive_name or "unknown",
+        "linked_at": datetime.now(timezone.utc).isoformat(),
+        "what_was_said": point.get("context") or point.get("text", ""),
+        "action": action,
+    })
 
     call.key_points = json.dumps(key_points)
     db.commit()
     db.refresh(call)
 
-    logger.info(f"Linked key point {point_index} from call {call_id} → Opportunity {opp.id}")
+    logger.info(f"Key point {point_index} from call {call_id} → Opportunity {opp.id} ({action})")
     return _call_to_read(call)
 
 
@@ -231,3 +375,4 @@ def delete_call(call_id: int, db: Session = Depends(get_db)):
     db.delete(obj)
     db.commit()
     logger.info(f"Deleted call intelligence record {call_id}")
+

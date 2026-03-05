@@ -483,6 +483,29 @@ export interface KeyPoint {
   linked_opportunity_id?: number;
   linked_by?: string;
   linked_at?: string;
+  what_was_said?: string;
+  action?: 'linked_existing' | 'created_new';
+}
+
+export interface OpportunitySuggestion {
+  id: number;
+  title: string;
+  stage: string;
+  account_name?: string;
+  confidence: number;
+  match_reason: string;
+}
+
+export interface KeyPointSuggestResult {
+  key_point: KeyPoint;
+  suggestions: OpportunitySuggestion[];
+  auto_create_payload: {
+    title: string;
+    description: string;
+    stage: string;
+    mentioned_company?: string;
+    type: string;
+  };
 }
 
 export interface CallIntelligence {
@@ -548,9 +571,11 @@ export const callsApi = {
     request<CallIntelligence[]>(`/calls${company_name ? `?company_name=${encodeURIComponent(company_name)}` : ''}`),
   get: (id: number) => request<CallIntelligence>(`/calls/${id}`),
   delete: (id: number) => request<void>(`/calls/${id}`, { method: 'DELETE' }),
+  suggestKeyPointLinks: (callId: number, pointIndex: number) =>
+    request<KeyPointSuggestResult>(`/calls/${callId}/key-points/${pointIndex}/suggest`),
   linkKeyPoint: (callId: number, pointIndex: number, opportunityId?: number) =>
-    request<CallIntelligence>(`/calls/${callId}/key-points/${pointIndex}/link`, {
-      method: 'POST',
-      body: JSON.stringify(opportunityId != null ? { opportunity_id: opportunityId } : {}),
-    }),
+    request<CallIntelligence>(
+      `/calls/${callId}/key-points/${pointIndex}/link${opportunityId != null ? `?opportunity_id=${opportunityId}` : ''}`,
+      { method: 'POST' },
+    ),
 };

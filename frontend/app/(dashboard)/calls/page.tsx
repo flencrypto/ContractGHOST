@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { callsApi, CallIntelligence, KeyPoint } from '@/lib/api';
+import { callsApi, CallIntelligence, KeyPoint, KeyPointSuggestResult } from '@/lib/api';
 
 export default function CallsPage() {
   const [calls, setCalls] = useState<CallIntelligence[]>([]);
@@ -11,7 +11,11 @@ export default function CallsPage() {
   const [filterCompany, setFilterCompany] = useState('');
   const [showAnalyseModal, setShowAnalyseModal] = useState(false);
   const [analysing, setAnalysing] = useState(false);
-  const [linkingIndex, setLinkingIndex] = useState<number | null>(null);
+
+  // Per-key-point suggestions panel state
+  const [suggestLoading, setSuggestLoading] = useState<number | null>(null);
+  const [suggestions, setSuggestions] = useState<Record<number, KeyPointSuggestResult | null>>({});
+  const [linking, setLinking] = useState<number | null>(null);
 
   const [form, setForm] = useState({
     company_name: '',
@@ -32,9 +36,7 @@ export default function CallsPage() {
     }
   };
 
-  useEffect(() => {
-    fetchCalls();
-  }, []);
+  useEffect(() => { fetchCalls(); }, []);
 
   const handleFilter = () => fetchCalls(filterCompany || undefined);
 
@@ -69,18 +71,37 @@ export default function CallsPage() {
     }
   };
 
-  const handleLinkKeyPoint = async (pointIndex: number) => {
+  /** Toggle the suggestions panel for a key point: fetch on first open, dismiss on second click. */
+  const handleOpenSuggest = async (pointIndex: number) => {
+    if (suggestions[pointIndex] !== undefined) {
+      setSuggestions((prev) => { const next = { ...prev }; delete next[pointIndex]; return next; });
+      return;
+    }
     if (!selected) return;
-    setLinkingIndex(pointIndex);
+    setSuggestLoading(pointIndex);
     try {
-      const updated = await callsApi.linkKeyPoint(selected.id, pointIndex);
+      const result = await callsApi.suggestKeyPointLinks(selected.id, pointIndex);
+      setSuggestions((prev) => ({ ...prev, [pointIndex]: result }));
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Suggest failed');
+    } finally {
+      setSuggestLoading(null);
+    }
+  };
+
+  /** Link a key point to an existing opportunity or auto-create one. */
+  const handleLink = async (pointIndex: number, opportunityId?: number) => {
+    if (!selected) return;
+    setLinking(pointIndex);
+    try {
+      const updated = await callsApi.linkKeyPoint(selected.id, pointIndex, opportunityId);
       setSelected(updated);
-      // Refresh list to reflect any new records
+      setSuggestions((prev) => { const next = { ...prev }; delete next[pointIndex]; return next; });
       fetchCalls(filterCompany || undefined);
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : 'Link failed');
     } finally {
-      setLinkingIndex(null);
+      setLinking(null);
     }
   };
 
@@ -101,14 +122,19 @@ export default function CallsPage() {
     }
   };
 
+  const confidenceBadge = (pct: number) => {
+    if (pct >= 70) return 'bg-emerald-600/25 text-emerald-300';
+    if (pct >= 40) return 'bg-amber-600/25 text-amber-300';
+    return 'bg-slate-600/30 text-slate-400';
+  };
+
   const TagList = ({ items, color }: { items?: string[] | null; color: string }) => {
-    if (!items || items.length === 0) return <span className="text-slate-500 text-xs">None detected</span>;
+    if (!items || items.length === 0)
+      return <span className="text-slate-500 text-xs">None detected</span>;
     return (
       <div className="flex flex-wrap gap-1.5">
         {items.map((item, i) => (
-          <span key={i} className={`text-xs px-2 py-1 rounded ${color}`}>
-            {item}
-          </span>
+          <span key={i} className={`text-xs px-2 py-1 rounded ${color}`}>{item}</span>
         ))}
       </div>
     );
@@ -133,7 +159,7 @@ export default function CallsPage() {
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Left Panel */}
+        {/* Left Panel – call list */}
         <div className="w-72 border-r border-slate-700 flex flex-col">
           <div className="p-4 border-b border-slate-700">
             <div className="flex gap-2">
@@ -144,10 +170,7 @@ export default function CallsPage() {
                 onChange={(e) => setFilterCompany(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleFilter()}
               />
-              <button
-                onClick={handleFilter}
-                className="bg-slate-700 hover:bg-slate-600 px-3 py-2 rounded text-sm"
-              >
+              <button onClick={handleFilter} className="bg-slate-700 hover:bg-slate-600 px-3 py-2 rounded text-sm">
                 Go
               </button>
             </div>
@@ -165,18 +188,12 @@ export default function CallsPage() {
                 return (
                   <button
                     key={call.id}
-                    onClick={() => setSelected(call)}
-                    className={`w-full text-left px-4 py-3 border-b border-slate-700/50 hover:bg-slate-800 transition-colors ${
-                      selected?.id === call.id ? 'bg-blue-600/20 border-r-2 border-r-blue-500' : ''
-                    }`}
+                    onClick={() => { setSelected(call); setSuggestions({}); }}
+                    className={`w-full text-left px-4 py-3 border-b border-slate-700/50 hover:bg-slate-800 transition-colors ${selected?.id === call.id ? 'bg-blue-600/20 border-r-2 border-r-blue-500' : ''}`}
                   >
-                    <p className="text-sm font-medium text-white truncate">
-                      {call.company_name ?? 'Unknown Company'}
-                    </p>
-                    {call.executive_name && (
-                      <p className="text-xs text-slate-400 truncate">{call.executive_name}</p>
-                    )}
-                    <div className="flex items-center gap-2 mt-1">
+                    <p className="text-sm font-medium text-white truncate">{call.company_name ?? 'Unknown Company'}</p>
+                    {call.executive_name && <p className="text-xs text-slate-400 truncate">{call.executive_name}</p>}
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
                       <span className={`text-xs font-medium ${sentiment.color}`}>{sentiment.text}</span>
                       <span className="text-xs text-slate-500">
                         {call.created_at ? new Date(call.created_at).toLocaleDateString() : ''}
@@ -194,18 +211,17 @@ export default function CallsPage() {
           </div>
         </div>
 
-        {/* Right Panel */}
+        {/* Right Panel – detail */}
         <div className="flex-1 overflow-y-auto p-6">
           {selected ? (
             <div className="space-y-5 max-w-2xl">
-              {/* Header */}
+
+              {/* Call header */}
               <div className="bg-slate-800 rounded-lg p-5">
                 <div className="flex items-start justify-between">
                   <div>
                     <h2 className="text-lg font-bold">{selected.company_name ?? 'Unknown Company'}</h2>
-                    {selected.executive_name && (
-                      <p className="text-slate-400 text-sm">{selected.executive_name}</p>
-                    )}
+                    {selected.executive_name && <p className="text-slate-400 text-sm">{selected.executive_name}</p>}
                     <p className="text-xs text-slate-500 mt-1">
                       {selected.created_at ? new Date(selected.created_at).toLocaleString() : ''}
                     </p>
@@ -213,26 +229,20 @@ export default function CallsPage() {
                   <div className="flex items-center gap-3">
                     {selected.sentiment_score != null && (
                       <div className="text-center">
-                        <div
-                          className={`text-lg font-bold ${sentimentLabel(selected.sentiment_score).color}`}
-                        >
-                          {selected.sentiment_score > 0 ? '+' : ''}
-                          {selected.sentiment_score.toFixed(2)}
+                        <div className={`text-lg font-bold ${sentimentLabel(selected.sentiment_score).color}`}>
+                          {selected.sentiment_score > 0 ? '+' : ''}{selected.sentiment_score.toFixed(2)}
                         </div>
                         <div className="text-xs text-slate-500">Sentiment</div>
                       </div>
                     )}
-                    <button
-                      onClick={() => handleDelete(selected.id)}
-                      className="text-red-400 hover:text-red-300 text-sm"
-                    >
+                    <button onClick={() => handleDelete(selected.id)} className="text-red-400 hover:text-red-300 text-sm">
                       Delete
                     </button>
                   </div>
                 </div>
               </div>
 
-              {/* Key Points */}
+              {/* ── Key Points ─────────────────────────────────────── */}
               {selected.key_points && selected.key_points.length > 0 && (
                 <div className="bg-slate-800 rounded-lg p-4">
                   <p className="text-xs text-slate-500 uppercase tracking-wide mb-3">
@@ -242,47 +252,109 @@ export default function CallsPage() {
                     {selected.key_points.map((kp, i) => {
                       const typeInfo = keyPointTypeLabel(kp.type);
                       const isLinked = !!kp.linked_opportunity_id;
+                      const panelOpen = suggestions[i] !== undefined;
+
                       return (
-                        <div
-                          key={i}
-                          className="border border-slate-700 rounded-lg p-3 space-y-1.5"
-                        >
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className={`text-xs px-2 py-0.5 rounded ${typeInfo.color}`}>
-                              {typeInfo.text}
-                            </span>
-                            {kp.mentioned_company && (
-                              <span className="text-xs text-slate-400">
-                                🏢 {kp.mentioned_company}
-                              </span>
+                        <div key={i} className="border border-slate-700 rounded-lg overflow-hidden">
+                          {/* Key point row */}
+                          <div className="p-3 space-y-1.5">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className={`text-xs px-2 py-0.5 rounded ${typeInfo.color}`}>{typeInfo.text}</span>
+                              {kp.mentioned_company && <span className="text-xs text-slate-400">🏢 {kp.mentioned_company}</span>}
+                              {kp.mentioned_job_title && <span className="text-xs text-slate-400">💼 {kp.mentioned_job_title}</span>}
+                            </div>
+                            <p className="text-sm text-slate-200">{kp.text}</p>
+                            {kp.context && kp.context !== kp.text && (
+                              <p className="text-xs text-slate-400 italic">{kp.context}</p>
                             )}
-                            {kp.mentioned_job_title && (
-                              <span className="text-xs text-slate-400">
-                                💼 {kp.mentioned_job_title}
-                              </span>
+
+                            {isLinked ? (
+                              /* Audit trail */
+                              <div className="mt-2 text-xs space-y-0.5">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-emerald-400 font-medium">
+                                    ✓ Linked to Opportunity #{kp.linked_opportunity_id}
+                                  </span>
+                                  {kp.action && (
+                                    <span className="text-slate-500">
+                                      ({kp.action === 'created_new' ? 'new record' : 'existing'})
+                                    </span>
+                                  )}
+                                </div>
+                                {kp.linked_by && (
+                                  <p className="text-slate-500">
+                                    Mentioned by {kp.linked_by}
+                                    {kp.linked_at ? ` · ${new Date(kp.linked_at).toLocaleString()}` : ''}
+                                  </p>
+                                )}
+                                {kp.what_was_said && (
+                                  <p className="text-slate-400 italic">&ldquo;{kp.what_was_said}&rdquo;</p>
+                                )}
+                              </div>
+                            ) : (
+                              /* Suggest button */
+                              <button
+                                onClick={() => handleOpenSuggest(i)}
+                                disabled={suggestLoading === i}
+                                aria-label={panelOpen ? 'Close suggestions panel' : 'Find or create linked record'}
+                                className="mt-1 text-xs bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 px-3 py-1 rounded disabled:opacity-50"
+                              >
+                                {suggestLoading === i ? 'Searching…' : panelOpen ? '▲ Close' : '🔗 Create / Link Record'}
+                              </button>
                             )}
                           </div>
-                          <p className="text-sm text-slate-200">{kp.text}</p>
-                          {kp.context && kp.context !== kp.text && (
-                            <p className="text-xs text-slate-400 italic">{kp.context}</p>
-                          )}
-                          {isLinked ? (
-                            <div className="flex items-center gap-2 mt-1">
-                              <span className="text-xs text-emerald-400">
-                                ✓ Linked to Opportunity #{kp.linked_opportunity_id}
-                              </span>
-                              {kp.linked_by && (
-                                <span className="text-xs text-slate-500">by {kp.linked_by}</span>
+
+                          {/* ── Suggestions panel (inline) ── */}
+                          {panelOpen && suggestions[i] && (
+                            <div className="border-t border-slate-700 bg-slate-900/60 p-3 space-y-3">
+
+                              {/* Top-3 fuzzy matches */}
+                              {suggestions[i]!.suggestions.length > 0 ? (
+                                <>
+                                  <p className="text-xs text-slate-400 font-medium">Top matches — click to link</p>
+                                  {suggestions[i]!.suggestions.map((s) => (
+                                    <div key={s.id} className="flex items-center justify-between gap-3 bg-slate-800 rounded px-3 py-2">
+                                      <div className="min-w-0">
+                                        <p className="text-sm text-white truncate">{s.title}</p>
+                                        <p className="text-xs text-slate-500">
+                                          {s.account_name ? `${s.account_name} · ` : ''}Stage: {s.stage} · {s.match_reason}
+                                        </p>
+                                      </div>
+                                      <div className="flex items-center gap-2 shrink-0">
+                                        <span className={`text-xs px-1.5 py-0.5 rounded font-mono ${confidenceBadge(s.confidence)}`}>
+                                          {s.confidence}%
+                                        </span>
+                                        <button
+                                          onClick={() => handleLink(i, s.id)}
+                                          disabled={linking === i}
+                                          className="text-xs bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-3 py-1 rounded"
+                                        >
+                                          {linking === i ? '…' : 'Link'}
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </>
+                              ) : (
+                                <p className="text-xs text-slate-500">No close matches found in existing opportunities.</p>
                               )}
+
+                              {/* Auto-create card */}
+                              <div className="border border-slate-700 rounded px-3 py-2 space-y-1">
+                                <p className="text-xs text-slate-400 font-medium">Create new record</p>
+                                <p className="text-xs text-slate-300 truncate">{suggestions[i]!.auto_create_payload.title}</p>
+                                {suggestions[i]!.auto_create_payload.mentioned_company && (
+                                  <p className="text-xs text-slate-500">🏢 {suggestions[i]!.auto_create_payload.mentioned_company}</p>
+                                )}
+                                <button
+                                  onClick={() => handleLink(i)}
+                                  disabled={linking === i}
+                                  className="mt-1 text-xs bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white px-3 py-1 rounded"
+                                >
+                                  {linking === i ? 'Creating…' : '+ Create New'}
+                                </button>
+                              </div>
                             </div>
-                          ) : (
-                            <button
-                              onClick={() => handleLinkKeyPoint(i)}
-                              disabled={linkingIndex === i}
-                              className="mt-1 text-xs bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 px-3 py-1 rounded disabled:opacity-50"
-                            >
-                              {linkingIndex === i ? 'Linking…' : '+ Create / Link Record'}
-                            </button>
                           )}
                         </div>
                       );
@@ -294,31 +366,11 @@ export default function CallsPage() {
               {/* Signals Grid */}
               <div className="grid grid-cols-1 gap-4">
                 {[
-                  {
-                    label: 'Budget Signals',
-                    items: selected.budget_signals,
-                    color: 'bg-emerald-600/20 text-emerald-300',
-                  },
-                  {
-                    label: 'Competitor Mentions',
-                    items: selected.competitor_mentions,
-                    color: 'bg-red-600/20 text-red-300',
-                  },
-                  {
-                    label: 'Timeline Mentions',
-                    items: selected.timeline_mentions,
-                    color: 'bg-blue-600/20 text-blue-300',
-                  },
-                  {
-                    label: 'Risk Language',
-                    items: selected.risk_language,
-                    color: 'bg-amber-600/20 text-amber-300',
-                  },
-                  {
-                    label: 'Objection Categories',
-                    items: selected.objection_categories,
-                    color: 'bg-purple-600/20 text-purple-300',
-                  },
+                  { label: 'Budget Signals', items: selected.budget_signals, color: 'bg-emerald-600/20 text-emerald-300' },
+                  { label: 'Competitor Mentions', items: selected.competitor_mentions, color: 'bg-red-600/20 text-red-300' },
+                  { label: 'Timeline Mentions', items: selected.timeline_mentions, color: 'bg-blue-600/20 text-blue-300' },
+                  { label: 'Risk Language', items: selected.risk_language, color: 'bg-amber-600/20 text-amber-300' },
+                  { label: 'Objection Categories', items: selected.objection_categories, color: 'bg-purple-600/20 text-purple-300' },
                 ].map(({ label, items, color }) => (
                   <div key={label} className="bg-slate-800 rounded-lg p-4">
                     <p className="text-xs text-slate-500 uppercase tracking-wide mb-2">{label}</p>
@@ -347,8 +399,7 @@ export default function CallsPage() {
             </div>
           ) : (
             <div className="bg-slate-800 rounded-lg p-5 text-center text-slate-500 text-sm max-w-md mx-auto mt-8">
-              Select a call record to view intelligence, or click &ldquo;Analyse Call&rdquo; to submit a
-              transcript.
+              Select a call record to view intelligence, or click &ldquo;Analyse Call&rdquo; to submit a transcript.
             </div>
           )}
         </div>
