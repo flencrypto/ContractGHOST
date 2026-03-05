@@ -26,6 +26,8 @@ _MIGRATIONS: list[tuple[str, str, str]] = [
     ("company_intel", "stock_price",   "VARCHAR(100)"),
     ("company_intel", "linkedin_posts", "TEXT"),
     ("company_intel", "x_posts",        "TEXT"),
+    # call_intelligence – key points extracted from transcript
+    ("call_intelligence", "key_points", "TEXT"),
 ]
 
 

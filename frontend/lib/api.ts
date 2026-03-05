@@ -474,6 +474,40 @@ export interface RelationshipSuggestResult {
 
 // ── Call Intelligence Types ────────────────────────────────────────────────
 
+export interface KeyPoint {
+  text: string;
+  type: 'job_discussion' | 'competitor_mention' | 'company_mention' | 'general';
+  mentioned_company?: string;
+  mentioned_job_title?: string;
+  context?: string;
+  linked_opportunity_id?: number;
+  linked_by?: string;
+  linked_at?: string;
+  what_was_said?: string;
+  action?: 'linked_existing' | 'created_new';
+}
+
+export interface OpportunitySuggestion {
+  id: number;
+  title: string;
+  stage: string;
+  account_name?: string;
+  confidence: number;
+  match_reason: string;
+}
+
+export interface KeyPointSuggestResult {
+  key_point: KeyPoint;
+  suggestions: OpportunitySuggestion[];
+  auto_create_payload: {
+    title: string;
+    description: string;
+    stage: string;
+    mentioned_company?: string;
+    type: string;
+  };
+}
+
 export interface CallIntelligence {
   id: number;
   company_name?: string;
@@ -486,6 +520,7 @@ export interface CallIntelligence {
   risk_language?: string[];
   objection_categories?: string[];
   next_steps?: string;
+  key_points?: KeyPoint[];
   created_at?: string;
 }
 
@@ -522,10 +557,25 @@ export const tenderApi = {
 // ── Calls API ──────────────────────────────────────────────────────────────
 
 export const callsApi = {
-  analyse: (data: { company_name?: string; executive_name?: string; transcript: string }) =>
-    request<CallIntelligence>('/calls/analyse', { method: 'POST', body: JSON.stringify(data) }),
+  analyse: (data: { company_name?: string; executive_name?: string; transcript: string }) => {
+    const form = new FormData();
+    if (data.company_name) form.append('company_name', data.company_name);
+    if (data.executive_name) form.append('executive_name', data.executive_name);
+    form.append('transcript', data.transcript);
+    return fetch(`${BASE_URL}/calls/analyse`, { method: 'POST', body: form }).then(async (res) => {
+      if (!res.ok) throw new Error(`API error ${res.status}: ${await res.text()}`);
+      return res.json() as Promise<CallIntelligence>;
+    });
+  },
   list: (company_name?: string) =>
     request<CallIntelligence[]>(`/calls${company_name ? `?company_name=${encodeURIComponent(company_name)}` : ''}`),
   get: (id: number) => request<CallIntelligence>(`/calls/${id}`),
   delete: (id: number) => request<void>(`/calls/${id}`, { method: 'DELETE' }),
+  suggestKeyPointLinks: (callId: number, pointIndex: number) =>
+    request<KeyPointSuggestResult>(`/calls/${callId}/key-points/${pointIndex}/suggest`),
+  linkKeyPoint: (callId: number, pointIndex: number, opportunityId?: number) =>
+    request<CallIntelligence>(
+      `/calls/${callId}/key-points/${pointIndex}/link${opportunityId != null ? `?opportunity_id=${opportunityId}` : ''}`,
+      { method: 'POST' },
+    ),
 };

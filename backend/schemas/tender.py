@@ -65,6 +65,7 @@ class CallIntelligenceRead(BaseModel):
     risk_language: list[str] | None = None
     objection_categories: list[str] | None = None
     next_steps: str | None = None
+    key_points: list[dict] = Field(default_factory=list)
     created_at: datetime
 
 

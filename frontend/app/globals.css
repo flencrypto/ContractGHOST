@@ -2,14 +2,20 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Brand token layer ── */
+
 :root {
-  --background: #0f172a;
-  --foreground: #f1f5f9;
+  --background: #050505;
+  --foreground: #F0F0F0;
+  --surface:    #0F0F0F;
+  --accent:     #00E5FF;
+  --metallic:   #C8C8C8;
 }
 
 body {
+  background-color: var(--background);
   color: var(--foreground);
-  background: var(--background);
+  font-family: "Inter", system-ui, sans-serif;
 }
 
 @layer utilities {
@@ -18,3 +24,182 @@ body {
   }
 }
 
+/* ===========================
+   aLiGN Logo System
+   =========================== */
+
+:root {
+  --align-bg:     #050505;
+  --align-grid:   rgba(0,229,255,0.03);
+  --align-beam:   #C8C8C8;
+  --align-text:   #F0F0F0;
+  --align-accent: #00E5FF;
+}
+
+/* container */
+
+.align-logo-container {
+  background: var(--align-bg);
+  position: relative;
+  padding: 60px 80px;
+  overflow: hidden;
+}
+
+/* blueprint grid */
+
+.align-logo-container::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--align-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--align-grid) 1px, transparent 1px);
+  background-size: 80px 80px;
+  opacity: .5;
+}
+
+/* logo */
+
+.align-logo {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  font-family: "Space Grotesk", "Inter", sans-serif;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--align-text);
+  filter: drop-shadow(0 0 12px rgba(0,229,255,0.6));
+  transition: filter 0.3s ease;
+}
+
+.align-logo:hover {
+  filter: drop-shadow(0 0 18px rgba(0,229,255,0.9));
+}
+
+/* the small a */
+
+.align-logo .a {
+  font-size: 2.6rem;
+  margin-right: 6px;
+}
+
+/* L vertical */
+
+.align-logo .L {
+  position: relative;
+  font-size: 4rem;
+  font-weight: 600;
+  margin-right: 0;
+}
+
+/* structural beam */
+
+.align-logo .beam {
+  position: absolute;
+  height: 6px;
+  width: 500px;
+  background: linear-gradient(
+    90deg,
+    var(--align-beam),
+    var(--align-accent)
+  );
+
+  bottom: 10px;
+  left: 0;
+
+  border-radius: 4px;
+
+  box-shadow:
+    0 0 6px rgba(0,229,255,.35),
+    0 0 20px rgba(0,229,255,.15);
+
+  transition: box-shadow 0.3s ease;
+}
+
+/* letters resting on beam */
+
+.align-logo .letters {
+  display: flex;
+  gap: 12px;
+  font-size: 2.4rem;
+  margin-left: 10px;
+}
+
+/* blueprint ticks */
+
+.align-logo .beam::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 40px,
+      rgba(0,229,255,.4) 41px,
+      transparent 42px
+    );
+  opacity: .35;
+}
+
+/* hover beam glow (overridden by parent filter, kept for specificity) */
+
+.align-logo:hover .beam {
+  box-shadow:
+    0 0 10px rgba(0,229,255,.6),
+    0 0 30px rgba(0,229,255,.3);
+}
+
+/* responsive */
+
+@media (max-width: 768px) {
+  .align-logo .beam {
+    width: 260px;
+  }
+
+  .align-logo .letters {
+    font-size: 1.6rem;
+  }
+}
+
+/* ── Compact variant for sidebar ── */
+
+.align-logo--compact .a {
+  font-size: 1.3rem;
+  margin-right: 3px;
+}
+
+.align-logo--compact .L {
+  font-size: 2rem;
+}
+
+.align-logo--compact .beam {
+  height: 4px;
+  width: 120px;
+  bottom: 5px;
+}
+
+.align-logo--compact .letters {
+  font-size: 1.2rem;
+  gap: 6px;
+  margin-left: 5px;
+}
+
+/* ── Light mode overrides ── */
+
+html.light {
+  --background: #F0F4F8;
+  --foreground: #0A0A0A;
+  --surface:    #FFFFFF;
+  --accent:     #00B8CC;
+  --metallic:   #444444;
+  --align-bg:   #F0F4F8;
+  --align-text: #0A0A0A;
+  --align-beam: #444444;
+  --align-grid: rgba(0,184,204,0.06);
+}
+
+html.light body {
+  background-color: var(--background);
+  color: var(--foreground);
+}
