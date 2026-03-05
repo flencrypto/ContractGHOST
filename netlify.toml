@@ -1,30 +1,54 @@
-# ── Netlify configuration for the aLiGN Next.js frontend ──────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+# aLiGN – Netlify configuration
 #
-# Set the following environment variables in the Netlify UI (Site > Settings >
-# Environment variables) before your first deploy:
+# Deploys the Next.js 15 frontend from the /frontend subdirectory.
 #
-#   NEXT_PUBLIC_API_URL   URL of your deployed backend, e.g.
-#                         https://align-api.railway.app/api/v1
+# Prerequisites (Netlify Site Settings → Environment Variables):
+#   NEXT_PUBLIC_API_URL      → URL of your deployed backend
+#                            e.g. https://api.align-dc.com/api/v1
 #
-# Optional auth variables (only needed when AUTH_PROVIDER is set):
+# Optional (only if using auth):
 #   NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 #   NEXT_PUBLIC_AUTH0_DOMAIN
 #   NEXT_PUBLIC_AUTH0_CLIENT_ID
+#
+# Deploy steps:
+# 1. Connect repo to Netlify
+# 2. Add the env vars above
+# 3. Netlify auto-detects this file
+# ─────────────────────────────────────────────────────────────────────────────
 
 [build]
-  base    = "frontend"
-  command = "npm ci && npm run build"
-  publish = ".next"
+  # The Next.js app lives in the /frontend subdirectory
+  base      = "frontend"
+  command   = "npm ci && npm run build"
+  publish   = ".next"
 
 [build.environment]
   NODE_VERSION            = "20"
   NEXT_TELEMETRY_DISABLED = "1"
 
-# The @netlify/plugin-nextjs plugin enables full Next.js features on Netlify
-# (API routes, Server Components, middleware, ISR, etc.).
-# Netlify installs it automatically — no manual npm install needed.
-# Do NOT add a catch-all [[redirects]] rule here: the plugin manages all
-# routing (server components, API routes, ISR) and a "/*" → "/index.html"
-# rule would intercept those requests before the plugin can handle them.
+# ── Next.js App Router support ───────────────────────────────────────────────
+# Full support for Server Components, Route Handlers, Middleware,
+# Image Optimisation and ISR via the official plugin.
 [[plugins]]
   package = "@netlify/plugin-nextjs"
+
+# ── Redirect rules ───────────────────────────────────────────────────────────
+# Belt-and-braces catch-all so direct links (/dashboard, /bids/123 etc.)
+# always hit the Next.js handler instead of 404.
+[[redirects]]
+  from   = "/*"
+  to     = "/.netlify/functions/___netlify-handler"
+  status = 200
+  force  = false
+
+# ── Headers (optional – add any you need) ────────────────────────────────────
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options           = "DENY"
+    X-XSS-Protection          = "1; mode=block"
+    X-Content-Type-Options    = "nosniff"
+    Referrer-Policy           = "strict-origin-when-cross-origin"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains"
