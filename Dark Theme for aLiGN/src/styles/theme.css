@@ -1,0 +1,84 @@
+@theme {
+  --color-background: #0A0F1C;
+  --color-surface: #161F33;
+  --color-border-subtle: #1F2A44;
+  --color-primary: #00E5FF;
+  --color-primary-dark: #00B4D8;
+  --color-secondary: #6366F1;
+  --color-text-main: #F1F5F9;
+  --color-text-muted: #94A3B8;
+  --color-text-faint: #64748B;
+  --color-success: #22C55E;
+  --color-warning: #F59E0B;
+  --color-danger: #EF4444;
+
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+
+  --radius-card: 8px;
+  --radius-button: 6px;
+}
+
+@layer base {
+  :root {
+    color-scheme: dark;
+    --background: var(--color-background);
+    --foreground: var(--color-text-main);
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+@layer utilities {
+  .bg-blueprint {
+    background-image: linear-gradient(to right, rgba(30, 58, 95, 0.04) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(30, 58, 95, 0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    background-position: center center;
+  }
+
+  .glow-primary {
+    box-shadow: 0 0 15px 0 rgba(0, 229, 255, 0.3);
+  }
+
+  .glow-primary-hover:hover {
+    box-shadow: 0 0 20px 0 rgba(0, 229, 255, 0.4);
+  }
+
+  .glass-panel {
+    background-color: rgba(22, 31, 51, 0.8);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(0, 229, 255, 0.1);
+  }
+
+  .card-hover {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  
+  .card-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px -2px rgba(0, 229, 255, 0.15);
+  }
+
+  .pulse-cyan {
+    animation: pulse-cyan-anim 2s infinite;
+  }
+
+  @keyframes pulse-cyan-anim {
+    0% {
+      box-shadow: 0 0 0 0 rgba(0, 229, 255, 0.7);
+    }
+    70% {
+      box-shadow: 0 0 0 6px rgba(0, 229, 255, 0);
+    }
+    100% {
+      box-shadow: 0 0 0 0 rgba(0, 229, 255, 0);
+    }
+  }
+}
