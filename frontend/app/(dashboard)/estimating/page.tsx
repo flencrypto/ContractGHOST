@@ -265,7 +265,7 @@ export default function EstimatingPage() {
                 {bids.map((b) => <option key={b.id} value={b.id}>{b.title}</option>)}
               </select>
               <select value={form.project_type} onChange={(e) => setForm({ ...form, project_type: e.target.value })} className="w-full bg-background border border-border-subtle text-text-main rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
-                {['live_refurb', 'brownfield', 'new_build'].map((t) => <option key={t} value={t}>{t.replace('_', ' ')}</option>)}
+                {([['live_refurb', 'Live Refurb'], ['brownfield', 'Brownfield'], ['new_build', 'New Build']] as const).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select>
               <select value={form.tier_level} onChange={(e) => setForm({ ...form, tier_level: e.target.value })} className="w-full bg-background border border-border-subtle text-text-main rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
                 {['Tier I', 'Tier II', 'Tier III', 'Tier IV'].map((t) => <option key={t}>{t}</option>)}
