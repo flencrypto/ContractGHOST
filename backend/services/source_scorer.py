@@ -69,7 +69,7 @@ def _recency_score(published_at: str | None) -> float:
 
     for fmt in ("%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%d", "%a, %d %b %Y %H:%M:%S %z"):
         try:
-            pub_date = datetime.strptime(published_at[:25], fmt[:len(published_at[:25])])
+            pub_date = datetime.strptime(published_at, fmt)
             if pub_date.tzinfo is None:
                 pub_date = pub_date.replace(tzinfo=timezone.utc)
             age_days = (datetime.now(timezone.utc) - pub_date).days
@@ -146,7 +146,7 @@ async def run_source_scoring(db) -> int:
     Updates confidence_score on InfrastructureAnnouncement and NewsArticle.
     Returns count of records scored.
     """
-    from backend.models.intelligence import InfrastructureAnnouncement, NewsArticle  # noqa: F401
+    from backend.models.intelligence import InfrastructureAnnouncement, NewsArticle
 
     count = 0
 

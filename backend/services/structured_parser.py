@@ -126,7 +126,7 @@ async def run_structured_parser(db) -> int:
     Writes to: InfrastructureProject (creates or updates)
     Returns: count of records processed
     """
-    from backend.models.intelligence import InfrastructureAnnouncement, NewsArticle, VendorPressRelease  # noqa: F401
+    from backend.models.intelligence import InfrastructureAnnouncement
     from backend.models.projects import InfrastructureProject
 
     count = 0
@@ -143,7 +143,7 @@ async def run_structured_parser(db) -> int:
                 # Update the announcement with extracted capacity
                 if parsed.get("capacity_mw") and not ann.capacity_mw:
                     ann.capacity_mw = parsed["capacity_mw"]
-                if parsed.get("project_value_gbp") and not ann.project_value_gbp:
+                if parsed.get("investment_value") and not ann.project_value_gbp:
                     ann.project_value_gbp = parsed.get("investment_value")
 
                 # Create InfrastructureProject record

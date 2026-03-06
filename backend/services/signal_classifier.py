@@ -125,7 +125,7 @@ async def run_signal_classification(db) -> int:
     Updates signal_type on InfrastructureAnnouncement, VendorPressRelease, NewsArticle.
     Returns count of records classified.
     """
-    from backend.models.intelligence import InfrastructureAnnouncement, NewsArticle, VendorPressRelease  # noqa: F401
+    from backend.models.intelligence import InfrastructureAnnouncement, NewsArticle
 
     count = 0
 

@@ -6,7 +6,6 @@ Stores extracted entity links in the database.
 
 import json
 import logging
-import re  # noqa: F401
 from typing import Any
 
 import httpx
@@ -144,7 +143,7 @@ async def run_entity_extraction(db) -> int:
     Updates keywords_matched / extracted_entities fields on source records.
     Returns count of records processed.
     """
-    from backend.models.intelligence import InfrastructureAnnouncement, NewsArticle, VendorPressRelease  # noqa: F401
+    from backend.models.intelligence import NewsArticle, VendorPressRelease
 
     count = 0
 

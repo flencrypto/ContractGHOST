@@ -4,7 +4,6 @@ Uses fuzzy string matching (rapidfuzz) to identify duplicate project signals.
 Assigns a canonical project_id to grouped duplicates.
 """
 
-import json  # noqa: F401
 import logging
 import re
 from typing import Any
