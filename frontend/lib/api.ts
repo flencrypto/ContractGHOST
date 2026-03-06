@@ -976,3 +976,29 @@ export const agentsApi = {
       body: JSON.stringify({ context }),
     }),
 };
+
+
+// ── Setup / Integration Status API ────────────────────────────────────────
+
+export interface IntegrationStatus {
+  configured: boolean;
+  missing_vars: string[];
+  required_for: string[];
+  optional: boolean;
+  setup_path: string;
+  docs_url: string;
+  note?: string;
+  active_backend?: string;
+  active_provider?: string;
+}
+
+export interface SetupStatus {
+  integrations: Record<string, IntegrationStatus>;
+  all_required_configured: boolean;
+  auth_provider: string;
+  storage_backend: string;
+}
+
+export const setupApi = {
+  getStatus: () => request<SetupStatus>('/setup/status'),
+};

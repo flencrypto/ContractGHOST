@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import Header from '@/components/layout/Header';
 import { agentsApi, type AgentResult } from '@/lib/api';
+import IntegrationGate from '@/components/IntegrationGate';
+import { useSetupStatus } from '@/lib/useSetupStatus';
 
 type AgentId = 'build_captain' | 'ui_surgeon' | 'test_pilot' | 'data_curator' | 'ops_boss';
 
@@ -122,6 +124,8 @@ function renderValue(value: unknown): string {
 }
 
 export default function AgentsPage() {
+  const { isConfigured } = useSetupStatus();
+  const grokConfigured = isConfigured('grok_ai');
   const [activeAgent, setActiveAgent] = useState<AgentId>('build_captain');
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -204,13 +208,15 @@ export default function AgentsPage() {
                 rows={6}
                 className="w-full bg-background border border-border-subtle rounded-lg px-3 py-2 text-text-main text-sm placeholder:text-text-faint focus:outline-none focus:border-primary/50 resize-none font-mono"
               />
-              <button
-                onClick={handleRun}
-                disabled={loading || !input.trim()}
-                className="w-full py-2.5 bg-primary/10 hover:bg-primary/20 text-primary text-sm font-mono rounded-lg border border-primary/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? `Running ${agent.name}…` : `Run ${agent.name} →`}
-              </button>
+              <IntegrationGate feature="grok_ai" isConfigured={grokConfigured}>
+                <button
+                  onClick={handleRun}
+                  disabled={loading || !input.trim()}
+                  className="w-full py-2.5 bg-primary/10 hover:bg-primary/20 text-primary text-sm font-mono rounded-lg border border-primary/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loading ? `Running ${agent.name}…` : `Run ${agent.name} →`}
+                </button>
+              </IntegrationGate>
               {error && (
                 <p className="text-error text-xs font-mono bg-error/10 border border-error/30 rounded px-3 py-2">
                   {error}

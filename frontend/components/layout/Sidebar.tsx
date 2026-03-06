@@ -19,6 +19,7 @@ const navItems = [
   { href: '/frameworks', label: 'Frameworks', icon: '🏛' },
   { href: '/blog', label: 'News Feed', icon: '✍️' },
   { href: '/agents', label: 'Agents', icon: '🤖' },
+  { href: '/setup', label: 'Setup', icon: '⚙️' },
 ];
 
 export default function Sidebar() {
