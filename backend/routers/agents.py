@@ -15,6 +15,8 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+from backend.services.integration_requirements import ensure_integration_configured
+
 logger = logging.getLogger("align.agents")
 
 router = APIRouter(prefix="/agents", tags=["Agents"])
@@ -53,10 +55,19 @@ async def run_build_captain(payload: BuildCaptainRequest) -> dict[str, Any]:
 
     Requires XAI_API_KEY to be configured.
     """
+    ensure_integration_configured(
+        integration_id="grok_ai",
+        integration_name="Grok AI",
+        required_env_vars=["XAI_API_KEY"],
+        setup_path="/setup#grok_ai",
+    )
+
     try:
         from backend.services.ai_workers import BuildCaptainWorker
         result = await BuildCaptainWorker().run(payload.request)
         return {"status": "ok", "agent": "build_captain", "result": result}
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.error("build_captain failed: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc))
@@ -70,10 +81,19 @@ async def run_ui_surgeon(payload: UiSurgeonRequest) -> dict[str, Any]:
 
     Requires XAI_API_KEY to be configured.
     """
+    ensure_integration_configured(
+        integration_id="grok_ai",
+        integration_name="Grok AI",
+        required_env_vars=["XAI_API_KEY"],
+        setup_path="/setup#grok_ai",
+    )
+
     try:
         from backend.services.ai_workers import UiSurgeonWorker
         result = await UiSurgeonWorker().run(payload.description)
         return {"status": "ok", "agent": "ui_surgeon", "result": result}
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.error("ui_surgeon failed: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc))
@@ -87,6 +107,13 @@ async def run_test_pilot(payload: TestPilotRequest) -> dict[str, Any]:
 
     Requires XAI_API_KEY to be configured.
     """
+    ensure_integration_configured(
+        integration_id="grok_ai",
+        integration_name="Grok AI",
+        required_env_vars=["XAI_API_KEY"],
+        setup_path="/setup#grok_ai",
+    )
+
     try:
         from backend.services.ai_workers import TestPilotWorker
         result = await TestPilotWorker().run(payload.feature_description)
@@ -95,6 +122,8 @@ async def run_test_pilot(payload: TestPilotRequest) -> dict[str, Any]:
             logger.error("test_pilot worker reported error: %s", result.get("error"))
             raise HTTPException(status_code=500, detail="Test Pilot agent failed")
         return {"status": "ok", "agent": "test_pilot", "result": result}
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.error("test_pilot failed: %s", exc)
         raise HTTPException(status_code=500, detail="Test Pilot agent failed")
@@ -108,10 +137,19 @@ async def run_data_curator(payload: DataCuratorRequest) -> dict[str, Any]:
 
     Requires XAI_API_KEY to be configured.
     """
+    ensure_integration_configured(
+        integration_id="grok_ai",
+        integration_name="Grok AI",
+        required_env_vars=["XAI_API_KEY"],
+        setup_path="/setup#grok_ai",
+    )
+
     try:
         from backend.services.ai_workers import DataCuratorWorker
         result = await DataCuratorWorker().run(payload.context)
         return {"status": "ok", "agent": "data_curator", "result": result}
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.error("data_curator failed: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc))
@@ -125,10 +163,19 @@ async def run_ops_boss(payload: OpsBossRequest) -> dict[str, Any]:
 
     Requires XAI_API_KEY to be configured.
     """
+    ensure_integration_configured(
+        integration_id="grok_ai",
+        integration_name="Grok AI",
+        required_env_vars=["XAI_API_KEY"],
+        setup_path="/setup#grok_ai",
+    )
+
     try:
         from backend.services.ai_workers import OpsBossWorker
         result = await OpsBossWorker().run(payload.context)
         return {"status": "ok", "agent": "ops_boss", "result": result}
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.error("ops_boss failed: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc))

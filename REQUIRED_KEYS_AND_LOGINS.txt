@@ -244,7 +244,7 @@ When a user triggers a feature that requires a missing integration:
   2. A modal appears explaining EXACTLY what is missing, WHY it's needed,
      and WHERE to get it.
   3. A "Go to Setup →" button links to /setup for full instructions.
-  4. The server returns 503 with { error, missing: [...], setupPath: "/setup" }
+  4. The server returns 501 with { error, missing: [...], setupPath: "/setup", integrationId }
      if the API is called directly without the key.
 
 No secrets are exposed client-side. /api/v1/setup/status returns only boolean

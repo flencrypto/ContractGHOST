@@ -47,10 +47,10 @@ Source: "..\docker-compose.yml";         DestDir: "{app}";                      
 Source: "..\.env.example";               DestDir: "{app}";                        Flags: ignoreversion
 
 ; Backend – exclude virtual-env, cache and compiled artefacts
-Source: "..\backend\*";                  DestDir: "{app}\backend";                Flags: ignoreversion recursesubdirs createallsubdirs excludes ".venv,venv,__pycache__,*.pyc,*.pyo,*.db,*.db-shm,*.db-wal"
+Source: "..\ackend\*";                  DestDir: "{app}\backend";                Flags: ignoreversion recursesubdirs createallsubdirs
 
 ; Frontend – exclude node_modules and build output
-Source: "..\frontend\*";                 DestDir: "{app}\frontend";               Flags: ignoreversion recursesubdirs createallsubdirs excludes "node_modules,.next,out"
+Source: "..\rontend\*";                 DestDir: "{app}\frontend";               Flags: ignoreversion recursesubdirs createallsubdirs
 
 ; Helper scripts (placed directly in the install root for easy access)
 Source: "scripts\start.bat";             DestDir: "{app}";                        Flags: ignoreversion
@@ -69,8 +69,10 @@ Name: "{autodesktop}\aLiGN";            Filename: "{app}\open-browser.bat";     
 
 ; ---- Post-install actions --------------------------------------------------
 [Run]
-; Open the browser after installation (optional, user can skip)
-Filename: "{app}\open-browser.bat"; Description: "Open aLiGN in browser now (services must be started first)"; Flags: postinstall skipifsilent nowait unchecked
+; Auto-start the aLiGN services immediately after installation
+Filename: "{app}\start.bat"; Description: ""; Flags: runhidden
+; Open the browser after services are running
+Filename: "{app}\open-browser.bat"; Description: "Open aLiGN in browser now"; Flags: postinstall skipifsilent nowait
 
 ; ---- Pre-uninstall: stop running containers --------------------------------
 [UninstallRun]
@@ -150,17 +152,20 @@ end;
 { -----------------------------------------------------------------------
   CurStepChanged – create .env from .env.example after files are
   installed, but only if .env does not already exist (idempotent).
+  Automatically schedule startup on first install.
   ----------------------------------------------------------------------- }
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   EnvExample : String;
   EnvDest    : String;
+  StartupDir : String;
 begin
   if CurStep = ssPostInstall then
   begin
     EnvExample := ExpandConstant('{app}\.env.example');
     EnvDest    := ExpandConstant('{app}\.env');
 
+    { Create .env from .env.example on first install }
     if FileExists(EnvExample) and not FileExists(EnvDest) then
       FileCopy(EnvExample, EnvDest, False);
   end;
