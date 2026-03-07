@@ -1,5 +1,6 @@
 'use client';
 
+import { Show, SignInButton, SignUpButton, UserButton } from '@clerk/nextjs';
 import { useTheme } from '@/components/ThemeProvider';
 
 interface HeaderProps {
@@ -27,6 +28,24 @@ export default function Header({ title, action }: HeaderProps) {
       <h1 className="relative text-xl font-semibold text-text-main tracking-tight drop-shadow-sm">{title}</h1>
       <div className="relative flex items-center gap-3">
         {action && <div>{action}</div>}
+        
+        {/* Clerk Auth UI */}
+        <Show when="signed-out">
+          <SignInButton mode="modal">
+            <button className="px-4 py-2 text-sm font-medium text-text-main bg-surface/80 border border-border-subtle rounded-lg hover:border-primary transition-all duration-200">
+              Sign In
+            </button>
+          </SignInButton>
+          <SignUpButton mode="modal">
+            <button className="px-4 py-2 text-sm font-medium text-background bg-primary rounded-lg hover:bg-primary/90 transition-all duration-200">
+              Sign Up
+            </button>
+          </SignUpButton>
+        </Show>
+        <Show when="signed-in">
+          <UserButton afterSignOutUrl="/" />
+        </Show>
+
         {/* Dark / Light toggle */}
         <button
           onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
