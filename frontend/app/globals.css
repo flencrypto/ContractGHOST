@@ -3,6 +3,29 @@
 @tailwind utilities;
 
 /* =========================================================
+   VINYLVAULT DESIGN TOKENS (dark-first)
+   ========================================================= */
+
+:root {
+  --vv-bg:      #0B0F14;
+  --vv-panel:   #111826;
+  --vv-card:    #1F2A3A;
+  --vv-text:    #E7EEF8;
+
+  --vv-border:  rgba(255,255,255,0.06);
+  --vv-divider: rgba(255,255,255,0.08);
+
+  --vv-cyan:    #2DE2E6;
+  --vv-violet:  #7B5CFF;
+
+  --vv-success: #35D07F;
+  --vv-warning: #FFB020;
+  --vv-danger:  #FF4D4D;
+
+  --vv-radius:  12px;
+}
+
+/* =========================================================
    BRAND TOKENS (RGB channels) + TYPOGRAPHY + RADII
    ========================================================= */
 

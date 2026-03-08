@@ -15,6 +15,7 @@ const config: Config = {
         lg:     "var(--radius-card)",
         xl:     "calc(var(--radius-card) + 4px)",
         "2xl":  "calc(var(--radius-card) + 8px)",
+        vv:     "var(--vv-radius)",
       },
       fontFamily: {
         sans: ["var(--font-sans)"],
@@ -77,6 +78,21 @@ const config: Config = {
           metallic: "#C8C8C8",
           text:     "var(--color-text-main)",
           muted:    "var(--color-text-muted)",
+        },
+
+        /* ── VinylVault tokens ── */
+        vv: {
+          bg:      "var(--vv-bg)",
+          panel:   "var(--vv-panel)",
+          card:    "var(--vv-card)",
+          text:    "var(--vv-text)",
+          border:  "var(--vv-border)",
+          divider: "var(--vv-divider)",
+          cyan:    "var(--vv-cyan)",
+          violet:  "var(--vv-violet)",
+          success: "var(--vv-success)",
+          warning: "var(--vv-warning)",
+          danger:  "var(--vv-danger)",
         },
       },
       backgroundImage: {
