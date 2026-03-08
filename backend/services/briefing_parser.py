@@ -329,12 +329,10 @@ def parse_and_upsert(db: Session, briefing_text: str) -> dict[str, Any]:
             estimated_value = _extract_value_millions(value_col or "") if value_col else None
 
             try:
-                tenders = await research_tenders_and_awards(
-                    keywords=keywords + [company],
-                    buyer_names=[company] if "operator" in company.lower() else None,
-                    supplier_names=[company] if any(k in company.lower() for k in ["construction", "engineering", "aeco", "mace"]) else None,
-                    region=",".join(regions) if regions else None,
-                    time_window_days=180
+                _, created = _upsert_opportunity(
+                    db, account, title[:255],
+                    section_text[:500] if section_text else None,
+                    estimated_value,
                 )
                 if created:
                     opportunities_created += 1
@@ -432,3 +430,94 @@ def parse_and_upsert(db: Session, briefing_text: str) -> dict[str, Any]:
         "briefing_doc_id": f"doc_{briefing_doc.id}",
         "suggested_touchpoints": list(dict.fromkeys(suggested_touchpoints))[:10],  # dedup, cap at 10
     }
+
+
+# ── GrokBriefingParser class (used by briefing_ingestion) ─────────────────────
+
+class GrokBriefingParser:
+    """Wrapper class providing an async interface around the functional parser."""
+
+    async def parse(self, briefing_text: str) -> dict[str, Any]:
+        """Parse briefing text and return extracted structured data."""
+        sections = _split_sections(briefing_text)
+        companies = set()
+        for section_text in sections.values():
+            companies.update(_extract_companies(section_text))
+
+        opportunities: list[dict] = []
+        signals: list[dict] = []
+        for section_name, section_text in sections.items():
+            rows = _extract_table_rows(section_text)
+            for row in rows:
+                project = row.get("Project") or row.get("Project Name") or row.get("Name") or row.get("Site")
+                if project:
+                    opportunities.append({
+                        "project": project,
+                        "location": row.get("Location") or row.get("Country"),
+                        "company": row.get("Company") or row.get("Operator") or row.get("Developer"),
+                        "value": row.get("Investment") or row.get("Value") or row.get("CapEx"),
+                    })
+
+            paragraphs = re.split(r"\n{2,}|(?:^|\n)[•\-\*]\s+", section_text)
+            for para in paragraphs:
+                para = para.strip()
+                if len(para) >= 30:
+                    signals.append({
+                        "text": para[:500],
+                        "section": section_name,
+                        "signal_type": _detect_signal_type(para).value,
+                    })
+
+        return {
+            "briefing_date": _extract_date(briefing_text),
+            "accounts": [{"name": c} for c in companies],
+            "opportunities": opportunities,
+            "trigger_signals": signals,
+            "intelligence_dataset": [],
+        }
+
+    async def upsert_extracted_data(self, extracted: dict, briefing_doc_id: int | None) -> dict:
+        """Upsert extracted data into the database."""
+        from backend.database import SessionLocal
+        db = SessionLocal()
+        try:
+            result = parse_and_upsert(db, self._rebuild_text(extracted))
+            db.commit()
+            return result.get("counts", {"accounts": len(extracted.get("accounts", []))})
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()
+
+    async def enrich_with_tenders(self, extracted: dict, briefing_date: str, briefing_doc_id: int | None) -> None:
+        """Placeholder for tender enrichment."""
+        logger.debug("Tender enrichment not yet implemented in wrapper")
+
+    async def generate_suggested_touchpoints(self, extracted: dict) -> list[str]:
+        """Generate touchpoint suggestions from extracted data."""
+        touchpoints = []
+        for opp in extracted.get("opportunities", []):
+            company = opp.get("company", "Unknown")
+            project = opp.get("project", "project")
+            touchpoints.append(f"Draft outreach for {company} re: {project[:60]}")
+        return touchpoints[:10]
+
+    async def generate_social_drafts_from_touchpoints(
+        self, touchpoints: list[str], platform: str = "x"
+    ) -> list[str]:
+        """Generate social media drafts from touchpoints."""
+        drafts = []
+        for tp in touchpoints[:5]:
+            drafts.append(f"📊 {tp} #DataCentre #Infrastructure")
+        return drafts
+
+    @staticmethod
+    def _rebuild_text(extracted: dict) -> str:
+        """Reconstruct minimal briefing text from extracted data for parse_and_upsert."""
+        parts = [f"Date: {extracted.get('briefing_date', '')}"]
+        for acc in extracted.get("accounts", []):
+            parts.append(f"Company: {acc.get('name', '')}")
+        for opp in extracted.get("opportunities", []):
+            parts.append(f"Project: {opp.get('project', '')} | {opp.get('company', '')}")
+        return "\n".join(parts)

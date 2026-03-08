@@ -8,6 +8,7 @@ import { accountsApi, accountsCsvApi, callsApi, Account, Contact, TriggerSignal,
 import {
   Building2, MapPin, Globe, Plus, Download, Upload, X, Users,
   Signal, ChevronRight, Search, ExternalLink, Phone, Mail, FileDown,
+  TrendingUp, Zap, BarChart3,
 } from 'lucide-react';
 
 const ACCOUNT_TYPES = ['All', 'operator', 'hyperscaler', 'developer', 'colo', 'enterprise'];
@@ -234,19 +235,41 @@ export default function AccountsPage() {
         />
       </div>
 
+      {/* Summary Stats */}
+      {!loading && accounts.length > 0 && (
+        <div className="px-6 pt-4 grid grid-cols-2 sm:grid-cols-4 gap-3 fade-in">
+          {[
+            { label: 'Total Accounts', value: accounts.length, icon: Building2, color: 'text-primary' },
+            { label: 'Operators', value: accounts.filter(a => a.type === 'operator').length, icon: Zap, color: 'text-cyan-400' },
+            { label: 'Hyperscalers', value: accounts.filter(a => a.type === 'hyperscaler').length, icon: TrendingUp, color: 'text-indigo-400' },
+            { label: 'Pipeline Value', value: accounts.reduce((s, a) => s + (a.annual_revenue || 0), 0), icon: BarChart3, color: 'text-success', isCurrency: true },
+          ].map((stat) => (
+            <div key={stat.label} className="metric-card rounded-xl p-4">
+              <div className="flex items-center justify-between mb-2">
+                <stat.icon className={`w-4 h-4 ${stat.color}`} />
+                <span className="text-[10px] font-mono uppercase tracking-wider text-text-faint">{stat.label}</span>
+              </div>
+              <p className={`text-xl font-bold font-mono ${stat.color}`}>
+                {stat.isCurrency ? `£${stat.value.toLocaleString()}` : stat.value}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="flex flex-1 overflow-hidden">
         {/* Main table */}
         <div className="flex-1 p-6 overflow-auto">
           {/* Search + Filter bar */}
           <div className="flex items-center gap-4 mb-5 flex-wrap">
-            <div className="relative flex-1 min-w-[200px] max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-faint" />
+            <div className="relative flex-1 min-w-[200px] max-w-sm group">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-faint group-focus-within:text-primary transition-colors" />
               <input
                 type="text"
                 placeholder="Search accounts…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full bg-color-surface/50 border border-color-border-subtle text-color-text-main rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:border-primary/60 backdrop-blur-sm transition-colors"
+                className="w-full bg-color-surface/50 border border-color-border-subtle text-color-text-main rounded-lg pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:border-primary/60 focus:shadow-neon backdrop-blur-sm transition-all"
               />
             </div>
             <div className="flex gap-1.5 flex-wrap">
@@ -264,21 +287,22 @@ export default function AccountsPage() {
                 </button>
               ))}
             </div>
-            <span className="text-text-faint text-xs font-mono ml-auto">{filtered.length} account{filtered.length !== 1 ? 's' : ''}</span>
+            <span className="text-text-faint text-xs font-mono ml-auto tabular-nums">{filtered.length} account{filtered.length !== 1 ? 's' : ''}</span>
           </div>
 
           {loading ? (
             <div className="space-y-3">{[...Array(6)].map((_, i) => <div key={i} className="shimmer h-16 rounded-xl" />)}</div>
           ) : filtered.length === 0 ? (
             <div className="text-center py-20 fade-in">
+              <div className="radar-ping mx-auto mb-4" />
               <Building2 className="w-12 h-12 text-text-faint mx-auto mb-3" />
               <p className="text-text-muted">No accounts found. Add your first account or import from CSV.</p>
             </div>
           ) : (
-            <div className="glass-card !p-0 overflow-hidden fade-in">
+            <div className="glass-card !p-0 overflow-hidden fade-in border-color-border-subtle/40">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-color-border-subtle/60">
+                  <tr className="border-b border-color-border-subtle/60 bg-color-surface/30">
                     <th className="text-left px-5 py-3.5 text-text-faint font-medium text-xs uppercase tracking-wider font-mono">Company</th>
                     <th className="text-left px-4 py-3.5 text-text-faint font-medium text-xs uppercase tracking-wider font-mono">Type</th>
                     <th className="text-left px-4 py-3.5 text-text-faint font-medium text-xs uppercase tracking-wider font-mono hidden md:table-cell">Location</th>
@@ -293,13 +317,13 @@ export default function AccountsPage() {
                       key={acc.id}
                       onClick={() => selectAccount(acc)}
                       className={`border-b border-color-border-subtle/30 cursor-pointer transition-all row-hover fade-in-up ${
-                        selected?.id === acc.id ? 'bg-primary/5 border-l-2 border-l-primary' : ''
+                        selected?.id === acc.id ? 'bg-primary/5 border-l-2 border-l-primary shadow-neon' : ''
                       }`}
                       style={{ animationDelay: `${Math.min(i * 30, 300)}ms` }}
                     >
                       <td className="px-5 py-3.5">
                         <Link href={`/accounts/${acc.id}`} onClick={(e) => e.stopPropagation()} className="flex items-center gap-3 group">
-                          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary/20 to-secondary/20 border border-color-border-subtle flex items-center justify-center flex-shrink-0 overflow-hidden">
+                          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary/20 to-secondary/20 border border-color-border-subtle flex items-center justify-center flex-shrink-0 overflow-hidden group-hover:border-primary/40 group-hover:shadow-glow transition-all">
                             {acc.logo_url ? (
                               // eslint-disable-next-line @next/next/no-img-element
                               <img src={acc.logo_url} alt="" className="w-full h-full object-contain" />
@@ -312,7 +336,7 @@ export default function AccountsPage() {
                             {acc.tags && (
                               <div className="flex gap-1 mt-0.5">
                                 {acc.tags.split(',').slice(0, 2).map((t) => t.trim()).filter(Boolean).map((tag) => (
-                                  <span key={tag} className="text-[10px] px-1.5 py-0.5 bg-color-surface rounded text-text-faint">{tag}</span>
+                                  <span key={tag} className="text-[10px] px-1.5 py-0.5 bg-primary/5 border border-primary/10 rounded text-text-faint">{tag}</span>
                                 ))}
                               </div>
                             )}
@@ -354,10 +378,10 @@ export default function AccountsPage() {
 
         {/* Side panel */}
         {selected && (
-          <div className="w-80 xl:w-96 border-l border-color-border-subtle bg-color-surface/80 backdrop-blur-lg overflow-auto p-5 flex-shrink-0 fade-in">
+          <div className="w-80 xl:w-96 border-l border-color-border-subtle/40 bg-color-surface/80 backdrop-blur-lg overflow-auto p-5 flex-shrink-0 fade-in">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/20 to-secondary/20 border border-color-border-subtle flex items-center justify-center flex-shrink-0 overflow-hidden">
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/20 to-secondary/20 border border-primary/20 flex items-center justify-center flex-shrink-0 overflow-hidden shadow-neon">
                   {selected.logo_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={selected.logo_url} alt="" className="w-full h-full object-contain" />
@@ -375,7 +399,7 @@ export default function AccountsPage() {
             {/* View Full Profile link */}
             <Link
               href={`/accounts/${selected.id}`}
-              className="flex items-center justify-center gap-2 w-full py-2.5 mb-5 rounded-lg bg-gradient-to-r from-primary/10 to-secondary/10 border border-primary/20 text-primary text-sm font-medium hover:border-primary/40 hover:shadow-glow transition-all"
+              className="action-card flex items-center justify-center gap-2 w-full py-2.5 mb-5 rounded-lg bg-gradient-to-r from-primary/10 to-secondary/10 border border-primary/20 text-primary text-sm font-medium hover:border-primary/40 hover:shadow-glow transition-all"
             >
               <ExternalLink className="w-4 h-4" /> View Full Profile
             </Link>

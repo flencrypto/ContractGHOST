@@ -11,7 +11,7 @@ class Settings(BaseSettings):
 
     # CORS – comma-separated list of allowed origins.
     # Example: "https://app.example.com,https://preview.example.com"
-    CORS_ORIGINS: str = "http://localhost:3000"
+    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:3001"
 
     # Database
     DATABASE_URL: str = "sqlite:///./align.db"

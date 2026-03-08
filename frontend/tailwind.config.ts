@@ -96,7 +96,9 @@ const config: Config = {
         panel: "0 12px 30px rgba(0,0,0,.45)",
         glow:  "0 0 20px rgba(0,229,255,0.15), 0 8px 32px rgba(0,0,0,0.30)",
         "glow-lg": "0 0 40px rgba(0,229,255,0.20), 0 16px 48px rgba(0,0,0,0.40)",
+        "glow-xl": "0 0 60px rgba(0,229,255,0.25), 0 24px 64px rgba(0,0,0,0.50)",
         "inner-glow": "inset 0 1px 0 rgba(255,255,255,0.06), 0 12px 30px rgba(0,0,0,.45)",
+        "neon": "0 0 5px rgba(0,229,255,0.30), 0 0 20px rgba(0,229,255,0.10), inset 0 0 10px rgba(0,229,255,0.05)",
       },
       animation: {
         "fade-in": "fadeIn 0.5s ease forwards",

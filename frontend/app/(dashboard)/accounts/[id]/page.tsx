@@ -155,11 +155,11 @@ export default function AccountDetailPage({ params }: { params: Promise<{ id: st
       />
       <div className="p-6 space-y-6 fade-in">
         {/* Account Header Card */}
-        <div className="glass-card rounded-2xl p-6 relative overflow-hidden">
-          <div className="absolute inset-0 holo-shimmer pointer-events-none opacity-40" />
+        <div className="metric-card rounded-2xl p-6 relative overflow-hidden">
+          <div className="absolute inset-0 holo-shimmer pointer-events-none opacity-30" />
           <div className="relative flex flex-col md:flex-row md:items-start gap-6">
             {/* Avatar */}
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-color-primary/20 to-color-secondary/10 border border-color-primary/20 flex items-center justify-center shrink-0">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-color-primary/20 to-color-secondary/10 border border-color-primary/20 flex items-center justify-center shrink-0 shadow-neon">
               {account.logo_url ? (
                 <img src={account.logo_url} alt="" className="w-12 h-12 rounded-xl object-cover" />
               ) : (
@@ -196,33 +196,51 @@ export default function AccountDetailPage({ params }: { params: Promise<{ id: st
             </div>
 
             {/* Quick stats */}
-            <div className="flex gap-4 shrink-0">
-              <div className="text-center p-3 rounded-xl bg-color-surface/50 border border-color-border-subtle/30 min-w-[80px]">
-                <p className="text-xl font-bold font-mono text-color-primary">{contacts.length}</p>
-                <p className="text-[10px] text-color-text-faint font-mono uppercase tracking-wider mt-0.5">Contacts</p>
-              </div>
-              <div className="text-center p-3 rounded-xl bg-color-surface/50 border border-color-border-subtle/30 min-w-[80px]">
-                <p className="text-xl font-bold font-mono text-color-success">{opportunities.length}</p>
-                <p className="text-[10px] text-color-text-faint font-mono uppercase tracking-wider mt-0.5">Opps</p>
-              </div>
-              <div className="text-center p-3 rounded-xl bg-color-surface/50 border border-color-border-subtle/30 min-w-[80px]">
-                <p className="text-xl font-bold font-mono text-color-warning">{activeSignals}</p>
-                <p className="text-[10px] text-color-text-faint font-mono uppercase tracking-wider mt-0.5">Signals</p>
-              </div>
+            <div className="flex gap-3 shrink-0">
+              {[
+                { label: 'Contacts', value: contacts.length, color: 'text-color-primary' },
+                { label: 'Opps', value: opportunities.length, color: 'text-color-success' },
+                { label: 'Signals', value: activeSignals, color: 'text-color-warning' },
+              ].map((s) => (
+                <div key={s.label} className="text-center p-3 rounded-xl bg-color-surface/50 border border-color-border-subtle/30 min-w-[80px] hover:border-color-primary/20 transition-all">
+                  <p className={`text-xl font-bold font-mono ${s.color}`}>{s.value}</p>
+                  <p className="text-[10px] text-color-text-faint font-mono uppercase tracking-wider mt-0.5">{s.label}</p>
+                </div>
+              ))}
             </div>
           </div>
         </div>
 
+        {/* Pipeline value banner */}
+        {pipelineValue > 0 && (
+          <div className="metric-card rounded-xl p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-success/15 flex items-center justify-center">
+                <TrendingUp size={18} className="text-color-success" />
+              </div>
+              <div>
+                <p className="text-[10px] font-mono uppercase tracking-wider text-color-text-faint">Total Pipeline Value</p>
+                <p className="text-lg font-bold font-mono text-color-success neon-text">£{pipelineValue.toLocaleString()}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-color-text-muted font-mono">
+              <span>{opportunities.length} opportunit{opportunities.length !== 1 ? 'ies' : 'y'}</span>
+              <span className="text-color-text-faint">·</span>
+              <span>{bids.length} bid{bids.length !== 1 ? 's' : ''}</span>
+            </div>
+          </div>
+        )}
+
         {/* Tabs */}
-        <div className="flex gap-1 p-1 rounded-xl bg-color-surface/40 border border-color-border-subtle/30 overflow-x-auto">
+        <div className="flex gap-1 p-1 rounded-xl bg-color-surface/40 border border-color-border-subtle/30 overflow-x-auto backdrop-blur-sm">
           {tabs.map((t) => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap ${
                 tab === t.key
-                  ? 'bg-color-primary/10 text-color-primary shadow-sm'
-                  : 'text-color-text-muted hover:text-color-text-main hover:bg-color-surface/60'
+                  ? 'bg-color-primary/10 text-color-primary shadow-neon border border-color-primary/20'
+                  : 'text-color-text-muted hover:text-color-text-main hover:bg-color-surface/60 border border-transparent'
               }`}
             >
               <t.Icon size={15} strokeWidth={tab === t.key ? 2.2 : 1.8} />
@@ -244,31 +262,31 @@ export default function AccountDetailPage({ params }: { params: Promise<{ id: st
           {tab === 'overview' && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Company Info */}
-              <div className="glass-card rounded-2xl p-6">
+              <div className="metric-card rounded-2xl p-6">
                 <div className="section-header mb-4">Company Information</div>
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {account.annual_revenue && (
-                    <div className="flex items-center justify-between p-3 rounded-xl bg-color-surface/40">
-                      <span className="flex items-center gap-2 text-sm text-color-text-muted"><DollarSign size={14} /> Annual Revenue</span>
-                      <span className="text-sm font-mono text-color-success font-medium">£{account.annual_revenue.toLocaleString()}</span>
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-color-surface/40 border border-success/10 hover:border-success/20 transition-colors">
+                      <span className="flex items-center gap-2 text-sm text-color-text-muted"><DollarSign size={14} className="text-success" /> Annual Revenue</span>
+                      <span className="text-sm font-mono text-color-success font-bold">£{account.annual_revenue.toLocaleString()}</span>
                     </div>
                   )}
                   {account.stage && (
-                    <div className="flex items-center justify-between p-3 rounded-xl bg-color-surface/40">
-                      <span className="flex items-center gap-2 text-sm text-color-text-muted"><TrendingUp size={14} /> Stage</span>
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-color-surface/40 hover:bg-color-surface/60 transition-colors">
+                      <span className="flex items-center gap-2 text-sm text-color-text-muted"><TrendingUp size={14} className="text-primary" /> Stage</span>
                       <span className="text-sm font-medium text-color-text-main">{account.stage}</span>
                     </div>
                   )}
                   {account.created_at && (
-                    <div className="flex items-center justify-between p-3 rounded-xl bg-color-surface/40">
-                      <span className="flex items-center gap-2 text-sm text-color-text-muted"><Calendar size={14} /> Created</span>
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-color-surface/40 hover:bg-color-surface/60 transition-colors">
+                      <span className="flex items-center gap-2 text-sm text-color-text-muted"><Calendar size={14} className="text-text-faint" /> Created</span>
                       <span className="text-sm font-mono text-color-text-main">{new Date(account.created_at).toLocaleDateString()}</span>
                     </div>
                   )}
                   {pipelineValue > 0 && (
-                    <div className="flex items-center justify-between p-3 rounded-xl bg-color-success/5 border border-color-success/10">
-                      <span className="flex items-center gap-2 text-sm text-color-text-muted"><DollarSign size={14} /> Pipeline Value</span>
-                      <span className="text-sm font-mono text-color-success font-bold">£{pipelineValue.toLocaleString()}</span>
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-color-success/5 border border-color-success/10 hover:border-success/25 transition-colors">
+                      <span className="flex items-center gap-2 text-sm text-color-text-muted"><DollarSign size={14} className="text-success" /> Pipeline Value</span>
+                      <span className="text-sm font-mono text-color-success font-bold neon-text">£{pipelineValue.toLocaleString()}</span>
                     </div>
                   )}
                 </div>
@@ -283,7 +301,7 @@ export default function AccountDetailPage({ params }: { params: Promise<{ id: st
               {/* Cross-links panel */}
               <div className="space-y-4">
                 {/* Recent Signals */}
-                <div className="glass-card rounded-2xl p-5">
+                <div className="metric-card rounded-2xl p-5">
                   <div className="flex items-center justify-between mb-3">
                     <div className="section-header"><Zap size={14} />Recent Signals</div>
                     <button onClick={() => setTab('signals')} className="text-[10px] text-color-primary hover:underline font-mono">View All →</button>
@@ -308,7 +326,7 @@ export default function AccountDetailPage({ params }: { params: Promise<{ id: st
                 </div>
 
                 {/* Recent Opportunities */}
-                <div className="glass-card rounded-2xl p-5">
+                <div className="metric-card rounded-2xl p-5">
                   <div className="flex items-center justify-between mb-3">
                     <div className="section-header"><Target size={14} />Opportunities</div>
                     <button onClick={() => setTab('opportunities')} className="text-[10px] text-color-primary hover:underline font-mono">View All →</button>
@@ -334,7 +352,7 @@ export default function AccountDetailPage({ params }: { params: Promise<{ id: st
                 </div>
 
                 {/* Recent Contacts */}
-                <div className="glass-card rounded-2xl p-5">
+                <div className="metric-card rounded-2xl p-5">
                   <div className="flex items-center justify-between mb-3">
                     <div className="section-header"><Users size={14} />Key Contacts</div>
                     <button onClick={() => setTab('contacts')} className="text-[10px] text-color-primary hover:underline font-mono">View All →</button>
@@ -363,7 +381,7 @@ export default function AccountDetailPage({ params }: { params: Promise<{ id: st
 
           {/* ── Contacts Tab ── */}
           {tab === 'contacts' && (
-            <div className="glass-card rounded-2xl p-6">
+            <div className="metric-card rounded-2xl p-6">
               <div className="flex items-center justify-between mb-5">
                 <div className="section-header"><Users size={14} />Contacts ({contacts.length})</div>
                 <button onClick={() => setShowContactModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-color-primary/10 text-color-primary rounded-xl hover:bg-color-primary/20 border border-color-primary/20 transition-colors">
@@ -410,7 +428,7 @@ export default function AccountDetailPage({ params }: { params: Promise<{ id: st
 
           {/* ── Signals Tab ── */}
           {tab === 'signals' && (
-            <div className="glass-card rounded-2xl p-6">
+            <div className="metric-card rounded-2xl p-6">
               <div className="flex items-center justify-between mb-5">
                 <div className="section-header"><Zap size={14} />Trigger Signals ({signals.length})</div>
                 <button onClick={() => setShowSignalModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-color-warning/10 text-color-warning rounded-xl hover:bg-color-warning/20 border border-color-warning/20 transition-colors">
@@ -454,7 +472,7 @@ export default function AccountDetailPage({ params }: { params: Promise<{ id: st
 
           {/* ── Opportunities Tab ── */}
           {tab === 'opportunities' && (
-            <div className="glass-card rounded-2xl p-6">
+            <div className="metric-card rounded-2xl p-6">
               <div className="flex items-center justify-between mb-5">
                 <div className="section-header"><Target size={14} />Opportunities ({opportunities.length})</div>
                 <Link href="/opportunities" className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-color-success/10 text-color-success rounded-xl hover:bg-color-success/20 border border-color-success/20 transition-colors">
@@ -502,7 +520,7 @@ export default function AccountDetailPage({ params }: { params: Promise<{ id: st
 
           {/* ── Bids Tab ── */}
           {tab === 'bids' && (
-            <div className="glass-card rounded-2xl p-6">
+            <div className="metric-card rounded-2xl p-6">
               <div className="flex items-center justify-between mb-5">
                 <div className="section-header"><FileStack size={14} />Bids ({bids.length})</div>
                 <Link href="/bids" className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-color-warning/10 text-color-warning rounded-xl hover:bg-color-warning/20 border border-color-warning/20 transition-colors">

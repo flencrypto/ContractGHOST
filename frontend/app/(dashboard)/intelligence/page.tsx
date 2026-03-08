@@ -21,7 +21,13 @@ export default function IntelligenceHubPage() {
       try {
         const [s, st, n] = await Promise.all([
           projectsApi.getStats().catch(() => null),
-          intelligenceApi.getStatus().catch(() => []),
+          intelligenceApi.getStatus().then(data => {
+            if (Array.isArray(data)) return data;
+            // Backend returns object keyed by collector name — convert to array
+            return Object.entries(data as Record<string, { record_count: number; last_collected_at?: string }>).map(
+              ([collector, info]) => ({ collector, ...info })
+            );
+          }).catch(() => []),
           intelligenceApi.listNews({ limit: 10 }).catch(() => []),
         ]);
         setStats(s);
@@ -38,7 +44,12 @@ export default function IntelligenceHubPage() {
     setRunning(collector);
     try {
       await fn();
-      const st = await intelligenceApi.getStatus().catch(() => []);
+      const st = await intelligenceApi.getStatus().then(data => {
+        if (Array.isArray(data)) return data;
+        return Object.entries(data as Record<string, { record_count: number; last_collected_at?: string }>).map(
+          ([collector, info]) => ({ collector, ...info })
+        );
+      }).catch(() => []);
       setStatus(st);
     } finally {
       setRunning(null);
