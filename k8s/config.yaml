@@ -12,5 +12,8 @@ metadata:
   name: align-secrets
 type: Opaque
 stringData:
+  # Use a networked database (e.g., PostgreSQL) for multi-replica deployments.
+  # SQLite is only suitable for single-replica dev/test environments.
+  # Example: "postgresql://user:password@db-host:5432/align"
   DATABASE_URL: "sqlite:///./align.db"
   GROK_API_KEY: "change-me"

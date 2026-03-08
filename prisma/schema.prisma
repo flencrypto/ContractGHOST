@@ -16,8 +16,10 @@ datasource db {
 model Account {
   id             Int      @id @default(autoincrement())
   name           String
-  type           String   @default("prospect")
+  // Valid values: operator, hyperscaler, developer, colo, enterprise
+  type           String   @default("enterprise")
   stage          String?
+  tier_target    String?
   location       String?
   website        String?
   logo_url       String?

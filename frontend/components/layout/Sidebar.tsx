@@ -42,7 +42,7 @@ const navGroups = [
       { href: '/intel', label: 'Intelligence', Icon: Search },
       { href: '/intelligence', label: 'Market Intel', Icon: Globe },
       { href: '/tenders', label: 'Tenders', Icon: FileText },
-      { href: '/signals', label: 'Signals 📡', Icon: Radio },
+      { href: '/signals', label: 'Signals', Icon: Radio },
     ],
   },
   {
