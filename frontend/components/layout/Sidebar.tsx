@@ -23,6 +23,7 @@ import {
   Menu,
   X,
   Radio,
+  LayoutGrid,
 } from 'lucide-react';
 
 const navGroups = [
@@ -43,6 +44,7 @@ const navGroups = [
       { href: '/intelligence', label: 'Market Intel', Icon: Globe },
       { href: '/tenders', label: 'Tenders', Icon: FileText },
       { href: '/signals', label: 'Signals', Icon: Radio },
+      { href: '/widgets', label: 'Widgets', Icon: LayoutGrid },
     ],
   },
   {
