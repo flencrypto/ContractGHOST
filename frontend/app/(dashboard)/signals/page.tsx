@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Header from '@/components/layout/Header';
-import { signalsApi, SignalEvent } from '@/lib/api';
+import { signalsApi, SignalEvent, RelationshipTimingResponse } from '@/lib/api';
 
 const EVENT_TYPES = [
   'contract_win',
@@ -36,10 +36,17 @@ export default function SignalsPage() {
     description: '',
     source_url: '',
     relevance_score: '',
+    strength: '1.0',
+    decay_factor: '0.05',
     event_date: '',
     status: 'active',
   });
   const [submitting, setSubmitting] = useState(false);
+
+  // Relationship timing state
+  const [timingResult, setTimingResult] = useState<RelationshipTimingResponse | null>(null);
+  const [timingLoading, setTimingLoading] = useState(false);
+  const [timingError, setTimingError] = useState<string | null>(null);
 
   const fetchSignals = async () => {
     setLoading(true);
@@ -95,6 +102,8 @@ export default function SignalsPage() {
         description: form.description || undefined,
         source_url: form.source_url || undefined,
         relevance_score: form.relevance_score ? parseFloat(form.relevance_score) : undefined,
+        strength: form.strength ? parseFloat(form.strength) : 1.0,
+        decay_factor: form.decay_factor ? parseFloat(form.decay_factor) : 0.05,
         event_date: form.event_date || undefined,
         status: form.status,
       });
@@ -106,6 +115,8 @@ export default function SignalsPage() {
         description: '',
         source_url: '',
         relevance_score: '',
+        strength: '1.0',
+        decay_factor: '0.05',
         event_date: '',
         status: 'active',
       });
@@ -114,6 +125,27 @@ export default function SignalsPage() {
       alert(e instanceof Error ? e.message : 'Failed to create signal event');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleGetTiming = async () => {
+    if (!selected) return;
+    setTimingLoading(true);
+    setTimingError(null);
+    setTimingResult(null);
+    try {
+      const daysSince = selected.detected_at
+        ? Math.floor((Date.now() - new Date(selected.detected_at).getTime()) / 86400000)
+        : 0;
+      const result = await signalsApi.relationshipSuggest({
+        signal_events: [selected.event_type],
+        days_since_events: [daysSince],
+      });
+      setTimingResult(result);
+    } catch (e: unknown) {
+      setTimingError(e instanceof Error ? e.message : 'Timing request failed');
+    } finally {
+      setTimingLoading(false);
     }
   };
 
@@ -191,6 +223,7 @@ export default function SignalsPage() {
                   <th className="text-left px-4 py-3">Type</th>
                   <th className="text-left px-4 py-3">Title</th>
                   <th className="text-left px-4 py-3">Relevance</th>
+                  <th className="text-left px-4 py-3">Strength × λ</th>
                   <th className="text-left px-4 py-3">Status</th>
                   <th className="text-left px-4 py-3">Detected</th>
                   <th className="px-4 py-3" />
@@ -201,7 +234,7 @@ export default function SignalsPage() {
                   <tr
                     key={s.id}
                     className="border-b border-color-border-subtle/20 hover:bg-color-primary/5 cursor-pointer transition-colors"
-                    onClick={() => setSelected(s)}
+                    onClick={() => { setSelected(s); setTimingResult(null); setTimingError(null); }}
                   >
                     <td className="px-4 py-3 font-medium text-color-text-main">{s.company_name}</td>
                     <td className="px-4 py-3">
@@ -214,6 +247,9 @@ export default function SignalsPage() {
                       {s.relevance_score !== undefined && s.relevance_score !== null
                         ? (s.relevance_score * 100).toFixed(0) + '%'
                         : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-color-text-faint font-mono text-[11px]">
+                      {s.strength?.toFixed(2) ?? '1.00'} × {s.decay_factor?.toFixed(3) ?? '0.050'}
                     </td>
                     <td className="px-4 py-3">
                       <span
@@ -262,7 +298,7 @@ export default function SignalsPage() {
               </div>
               <button
                 className="text-color-text-faint hover:text-color-text-muted text-xl leading-none"
-                onClick={() => setSelected(null)}
+                onClick={() => { setSelected(null); setTimingResult(null); }}
               >
                 ×
               </button>
@@ -278,6 +314,12 @@ export default function SignalsPage() {
                   {selected.relevance_score !== undefined && selected.relevance_score !== null
                     ? (selected.relevance_score * 100).toFixed(0) + '%'
                     : '—'}
+                </p>
+              </div>
+              <div>
+                <p className="text-color-text-faint text-[10px] uppercase tracking-wider font-mono mb-1">Strength × λ</p>
+                <p className="font-mono">
+                  {selected.strength?.toFixed(2) ?? '1.00'} × {selected.decay_factor?.toFixed(3) ?? '0.050'}
                 </p>
               </div>
               <div>
@@ -310,6 +352,63 @@ export default function SignalsPage() {
                 </a>
               </div>
             )}
+
+            {/* Relationship Timing Engine */}
+            <div className="border-t border-color-border-subtle/30 pt-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-color-text-main font-mono uppercase tracking-wider">
+                  Relationship Timing Engine
+                </h3>
+                <button
+                  className="btn-secondary text-xs px-3 py-1.5"
+                  onClick={handleGetTiming}
+                  disabled={timingLoading}
+                >
+                  {timingLoading ? 'Analysing…' : 'Get Relationship Timing'}
+                </button>
+              </div>
+
+              {timingError && (
+                <p className="text-xs text-red-400">{timingError}</p>
+              )}
+
+              {timingResult && (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+                  <div className="glass-card p-3 rounded-lg">
+                    <p className="text-color-text-faint text-[10px] uppercase tracking-wider font-mono mb-1">Timing Score</p>
+                    <p className="font-mono text-lg font-semibold text-color-text-main">
+                      {(timingResult.timing_score * 100).toFixed(1)}%
+                    </p>
+                  </div>
+                  <div className="glass-card p-3 rounded-lg">
+                    <p className="text-color-text-faint text-[10px] uppercase tracking-wider font-mono mb-1">Recommend Contact</p>
+                    <p className={`font-mono font-semibold ${timingResult.recommend_contact ? 'text-color-success' : 'text-color-text-muted'}`}>
+                      {timingResult.recommend_contact ? 'Yes' : 'No'}
+                    </p>
+                  </div>
+                  <div className="glass-card p-3 rounded-lg">
+                    <p className="text-color-text-faint text-[10px] uppercase tracking-wider font-mono mb-1">Strongest Signal</p>
+                    <p className="font-mono text-color-text-main">
+                      {timingResult.strongest_signal?.replace(/_/g, ' ') ?? '—'}
+                    </p>
+                  </div>
+                  <div className="glass-card p-3 rounded-lg">
+                    <p className="text-color-text-faint text-[10px] uppercase tracking-wider font-mono mb-1">Days Until Stale</p>
+                    <p className="font-mono text-color-text-main">
+                      {timingResult.days_until_stale !== undefined && timingResult.days_until_stale !== null
+                        ? `${timingResult.days_until_stale}d`
+                        : '—'}
+                    </p>
+                  </div>
+                  {timingResult.explanation && (
+                    <div className="col-span-2 glass-card p-3 rounded-lg">
+                      <p className="text-color-text-faint text-[10px] uppercase tracking-wider font-mono mb-1">Explanation</p>
+                      <p className="text-sm text-color-text-muted">{timingResult.explanation}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -391,6 +490,32 @@ export default function SignalsPage() {
                     type="date"
                     value={form.event_date}
                     onChange={(e) => setForm({ ...form, event_date: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label">Strength (0–10)</label>
+                  <input
+                    className="input w-full"
+                    type="number"
+                    min="0"
+                    max="10"
+                    step="0.1"
+                    value={form.strength}
+                    onChange={(e) => setForm({ ...form, strength: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="label">Decay Factor λ (0–1)</label>
+                  <input
+                    className="input w-full"
+                    type="number"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={form.decay_factor}
+                    onChange={(e) => setForm({ ...form, decay_factor: e.target.value })}
                   />
                 </div>
               </div>

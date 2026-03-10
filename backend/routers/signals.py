@@ -3,6 +3,7 @@
 Endpoints:
   POST   /api/v1/signals                        – Create a signal event
   GET    /api/v1/signals                        – List signal events (filterable)
+  POST   /api/v1/signals/relationship/suggest   – Relationship timing suggestion
   GET    /api/v1/signals/{id}                   – Get a single signal event
   PATCH  /api/v1/signals/{id}                   – Update a signal event
   DELETE /api/v1/signals/{id}                   – Delete a signal event
@@ -10,8 +11,10 @@ Endpoints:
 """
 
 import logging
+import math
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
@@ -19,15 +22,22 @@ from backend.models.intel import SignalEvent, SignalEventStatus, SignalEventType
 from backend.schemas.signals import (
     ExpansionScoreRequest,
     ExpansionScoreResult,
+    RelationshipTimingResponse,
     SignalEventCreate,
     SignalEventRead,
     SignalEventUpdate,
 )
 from backend.services import scoring
+from backend.services.scoring import (
+    SIGNAL_DECAY as _SIGNAL_DECAY,
+    SIGNAL_IMPORTANCE as _SIGNAL_IMPORTANCE,
+)
 
 logger = logging.getLogger("align.signals")
 
 router = APIRouter(prefix="/signals", tags=["Signal Events"])
+
+_STALE_THRESHOLD = 0.30  # timing score below which a signal is considered stale
 
 
 # ── CRUD ──────────────────────────────────────────────────────────────────────
@@ -48,6 +58,9 @@ def create_signal_event(payload: SignalEventCreate, db: Session = Depends(get_db
         description=payload.description,
         source_url=payload.source_url,
         relevance_score=payload.relevance_score,
+        strength=payload.strength,
+        decay_factor=payload.decay_factor,
+        company_intel_id=payload.company_intel_id,
         status=payload.status,
         event_date=payload.event_date,
     )
@@ -84,6 +97,72 @@ def list_signal_events(
         q = q.filter(SignalEvent.status == status)
     return q.offset(skip).limit(limit).all()
 
+
+# ── Relationship Timing ───────────────────────────────────────────────────────
+
+class RelationshipSuggestRequest(BaseModel):
+    signal_events: list[str] = Field(default_factory=list)
+    days_since_events: list[int] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def check_lists(self) -> "RelationshipSuggestRequest":
+        if len(self.signal_events) != len(self.days_since_events):
+            raise ValueError("signal_events and days_since_events must have same length")
+        if any(d < 0 for d in self.days_since_events):
+            raise ValueError("days_since_events values must be non-negative")
+        return self
+
+
+@router.post("/relationship/suggest", response_model=RelationshipTimingResponse)
+def suggest_relationship_timing(payload: RelationshipSuggestRequest):
+    # Compute per-event raw contributions (decay × importance) once, reuse below
+    per_event: list[tuple[str, float, float]] = []  # (event_name, lam, raw_weight)
+    total_score_raw = 0.0
+    for event, days in zip(payload.signal_events, payload.days_since_events):
+        lam = _SIGNAL_DECAY.get(event, 0.05)
+        importance = _SIGNAL_IMPORTANCE.get(event, 0.5)
+        w = math.exp(-lam * days) * importance
+        per_event.append((event, lam, w))
+        total_score_raw += w
+
+    # Normalised timing score (matches compute_relationship_timing's /3.0 cap)
+    normalised = min(total_score_raw / 3.0, 1.0)
+    result = {
+        "timing_score": round(normalised, 4),
+        "recommend_contact": normalised >= _STALE_THRESHOLD,
+    }
+
+    # Strongest signal: event with the highest individual weighted contribution
+    strongest: str | None = None
+    if per_event:
+        strongest = max(per_event, key=lambda t: t[2])[0]
+
+    # Days until score decays below _STALE_THRESHOLD using effective λ (contribution-weighted).
+    # total_score_raw(d) ≈ total_score_raw * exp(-λ_eff * d)
+    # Solve: total_score_raw * exp(-λ_eff * d) / 3.0 = _STALE_THRESHOLD
+    #   → d = -ln(_STALE_THRESHOLD * 3.0 / total_score_raw) / λ_eff
+    days_until_stale: int | None = None
+    threshold_raw = _STALE_THRESHOLD * 3.0
+    if total_score_raw > threshold_raw and per_event:
+        lambda_eff = sum(lam * w for _, lam, w in per_event) / total_score_raw
+        if lambda_eff > 0:
+            days_until_stale = max(0, int(-math.log(threshold_raw / total_score_raw) / lambda_eff))
+
+    explanation = (
+        "Contact recommended based on recent signal activity."
+        if result["recommend_contact"]
+        else "No urgent outreach needed; signals are decaying."
+    )
+    return RelationshipTimingResponse(
+        timing_score=result["timing_score"],
+        recommend_contact=result["recommend_contact"],
+        strongest_signal=strongest,
+        days_until_stale=days_until_stale,
+        explanation=explanation,
+    )
+
+
+# ── CRUD (by ID) ──────────────────────────────────────────────────────────────
 
 @router.get(
     "/{signal_id}",

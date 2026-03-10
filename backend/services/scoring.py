@@ -137,8 +137,9 @@ def _cpi_norm(cpi: float | None) -> float:
 
 # ── Relationship Timing Score ─────────────────────────────────────────────────
 
-# Decay constants (λ) per signal type – higher = faster decay
-_SIGNAL_DECAY: dict[str, float] = {
+# Decay constants (λ) per signal type – higher = faster decay.
+# Exported so callers (e.g. routers) can use the same values without duplication.
+SIGNAL_DECAY: dict[str, float] = {
     "contract_win": 0.05,
     "expansion": 0.04,
     "charity_event": 0.07,
@@ -147,9 +148,12 @@ _SIGNAL_DECAY: dict[str, float] = {
     "new_role": 0.03,
     "funding_round": 0.04,
 }
+# Keep private alias for backward compatibility inside this module
+_SIGNAL_DECAY = SIGNAL_DECAY
 
-# Importance weights per signal type
-_SIGNAL_IMPORTANCE: dict[str, float] = {
+# Importance weights per signal type.
+# Exported so callers can use the same values without duplication.
+SIGNAL_IMPORTANCE: dict[str, float] = {
     "contract_win": 1.0,
     "expansion": 0.9,
     "charity_event": 0.5,
@@ -158,6 +162,7 @@ _SIGNAL_IMPORTANCE: dict[str, float] = {
     "new_role": 0.8,
     "funding_round": 0.9,
 }
+_SIGNAL_IMPORTANCE = SIGNAL_IMPORTANCE
 
 _CONTACT_THRESHOLD = 0.30
 
@@ -231,3 +236,5 @@ def compute_expansion_activity_score(
         "hiring_contribution": hiring_contribution,
         "physical_contribution": physical_contribution,
     }
+
+
