@@ -34,6 +34,8 @@ logger = logging.getLogger("align.signals")
 
 router = APIRouter(prefix="/signals", tags=["Signal Events"])
 
+_STALE_THRESHOLD = 0.30  # timing score below which a signal is considered stale
+
 
 # ── CRUD ──────────────────────────────────────────────────────────────────────
 
@@ -111,9 +113,10 @@ def suggest_relationship_timing(payload: RelationshipSuggestRequest):
     result = compute_relationship_timing(payload.signal_events, payload.days_since_events)
     strongest = payload.signal_events[0] if payload.signal_events else None
     days_until_stale = None
-    if result["timing_score"] > 0.30:
+    if result["timing_score"] >= _STALE_THRESHOLD:
         avg_lambda = 0.05
-        days_until_stale = int(math.log(result["timing_score"] / 0.30) / avg_lambda)
+        raw = result["timing_score"] / _STALE_THRESHOLD
+        days_until_stale = int(math.log(raw) / avg_lambda) if raw > 1 else 0
     explanation = (
         "Contact recommended based on recent signal activity."
         if result["recommend_contact"]
