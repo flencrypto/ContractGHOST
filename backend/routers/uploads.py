@@ -36,15 +36,55 @@ _ALLOWED_TYPES = {
     "application/pdf",
     "image/svg+xml",
 }
+_ALLOWED_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".pdf", ".svg"}
 
 
 def _safe_filename(original: str) -> str:
     """Generate a safe, unique filename preserving the original extension."""
-    ext = Path(original).suffix.lower()
-    allowed_exts = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".pdf", ".svg"}
-    if ext not in allowed_exts:
+    ext = Path(original).name.rsplit(".", 1)
+    ext = ("." + ext[-1].lower()) if len(ext) == 2 else ""
+    if ext not in _ALLOWED_EXTS:
         ext = ".bin"
     return f"{uuid.uuid4().hex}{ext}"
+
+
+def _resolve_upload_path(obj) -> Path | None:
+    """Safely resolve the on-disk path for an uploaded file record.
+
+    Strategy (in order):
+    1. If ``storage_path`` is set, resolve it and verify it remains within
+       ``_UPLOAD_DIR`` via ``Path.relative_to()``.  If valid *and* the file
+       exists, use it.  This preserves compatibility with existing records
+       while catching tampered paths.
+    2. Fall back to reconstructing the path from ``filename`` (the UUID-based
+       safe name stored at upload time) within the current ``_UPLOAD_DIR``.
+       This handles the case where ``UPLOAD_DIR`` has changed between writes
+       and reads, or where ``storage_path`` pointed outside the directory.
+
+    Returns the resolved ``Path`` if the file exists, otherwise ``None``.
+    """
+    upload_dir = _UPLOAD_DIR.resolve()
+
+    # Attempt 1: trust storage_path after containment check
+    if obj.storage_path:
+        try:
+            candidate = Path(obj.storage_path).resolve()
+            candidate.relative_to(upload_dir)  # raises ValueError if outside
+            if candidate.exists():
+                return candidate
+        except (ValueError, OSError):
+            pass
+
+    # Attempt 2: reconstruct from the safe filename
+    # Path.name strips all directory components (e.g. "../../etc/passwd" → "passwd"),
+    # so this is safe against path traversal in obj.filename.
+    safe_name = Path(obj.filename).name
+    fallback = (upload_dir / safe_name).resolve()
+    try:
+        fallback.relative_to(upload_dir)  # extra safety guard
+    except ValueError:
+        return None
+    return fallback if fallback.exists() else None
 
 
 @router.post(
@@ -66,11 +106,23 @@ async def upload_photo(
     Files are stored locally under the UPLOAD_DIR path.
     In production, replace local storage with S3-signed URL upload.
     """
-    if file.content_type and file.content_type not in _ALLOWED_TYPES:
-        raise HTTPException(
-            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            detail=f"Unsupported file type: {file.content_type}. Allowed: {', '.join(_ALLOWED_TYPES)}",
-        )
+    # Validate by content_type when provided; fall back to extension check
+    # when the client does not supply a MIME type.
+    original_name = file.filename or "upload.bin"
+    ext = ("." + original_name.rsplit(".", 1)[-1].lower()) if "." in original_name else ""
+    if file.content_type:
+        if file.content_type not in _ALLOWED_TYPES:
+            raise HTTPException(
+                status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+                detail=f"Unsupported file type: {file.content_type}. Allowed: {', '.join(sorted(_ALLOWED_TYPES))}",
+            )
+    else:
+        # No content-type header – validate by file extension as a fallback.
+        if ext not in _ALLOWED_EXTS:
+            raise HTTPException(
+                status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+                detail=f"Unsupported file extension: {ext!r}. Allowed: {', '.join(sorted(_ALLOWED_EXTS))}",
+            )
 
     content = await file.read()
     if len(content) > _MAX_SIZE_BYTES:
@@ -137,8 +189,8 @@ def download_photo(photo_id: int, db: Session = Depends(get_db)):
     obj = db.get(UploadedPhoto, photo_id)
     if not obj:
         raise HTTPException(status_code=404, detail="Photo not found")
-    path = Path(obj.storage_path)
-    if not path.exists():
+    path = _resolve_upload_path(obj)
+    if path is None:
         raise HTTPException(status_code=404, detail="File not found on disk")
     return FileResponse(
         path=str(path),
@@ -156,8 +208,8 @@ def delete_photo(photo_id: int, db: Session = Depends(get_db)):
     obj = db.get(UploadedPhoto, photo_id)
     if not obj:
         raise HTTPException(status_code=404, detail="Photo not found")
-    path = Path(obj.storage_path)
-    if path.exists():
+    path = _resolve_upload_path(obj)
+    if path is not None:
         try:
             path.unlink()
         except OSError as exc:
