@@ -393,6 +393,8 @@ model SignalEvent {
 
   account      Account?      @relation(fields: [account_id], references: [id], onDelete: SetNull)
   company_intel CompanyIntel? @relation(fields: [company_intel_id], references: [id], onDelete: SetNull)
+
+  @@index([company_intel_id])
 }
 
 // ── Lead Times ────────────────────────────────────────────────────────────────

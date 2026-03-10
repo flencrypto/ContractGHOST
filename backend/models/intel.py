@@ -84,7 +84,7 @@ class CompanyIntel(Base):
         "BlogPost", back_populates="company_intel", cascade="all, delete-orphan"
     )
     signal_events: Mapped[list["SignalEvent"]] = relationship(
-        "SignalEvent", back_populates="company_intel", cascade="all, delete-orphan"
+        "SignalEvent", back_populates="company_intel", cascade="all"
     )
 
 

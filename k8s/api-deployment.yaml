@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: align-api
+  name: align-backend
   labels:
     app: align
     tier: api
@@ -60,3 +60,10 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 10
             failureThreshold: 3
+          volumeMounts:
+            - name: shared-storage
+              mountPath: /app/uploads
+      volumes:
+        - name: shared-storage
+          persistentVolumeClaim:
+            claimName: align-shared-pvc

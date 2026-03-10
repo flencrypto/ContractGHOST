@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: align-api-svc
+  name: align-backend-svc
   labels:
     app: align
     tier: api
@@ -10,24 +10,6 @@ spec:
   selector:
     app: align
     tier: api
-  ports:
-    - name: http
-      port: 8000
-      targetPort: 8000
-      protocol: TCP
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: align-worker-svc
-  labels:
-    app: align
-    tier: worker
-spec:
-  type: ClusterIP
-  selector:
-    app: align
-    tier: worker
   ports:
     - name: http
       port: 8000
