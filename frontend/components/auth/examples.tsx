@@ -78,6 +78,7 @@ export function UserProfileCard() {
  */
 export function BidActionButtons({ bidId }: { bidId: string }) {
   const { has, isLoaded } = useAuth()
+  void bidId
 
   if (!isLoaded) {
     return <div>Loading permissions...</div>
@@ -249,7 +250,7 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
         <div className="max-w-md text-center">
           <h1 className="mb-4 text-2xl font-bold">Welcome to xALiGN!</h1>
           <p className="mb-6 text-muted-foreground">
-            Let's get you set up with a few quick questions.
+            Let&apos;s get you set up with a few quick questions.
           </p>
           <button className="btn btn-primary">
             Start Onboarding
