@@ -76,8 +76,9 @@ export function UserProfileCard() {
 /**
  * Example 2: Bid action buttons with permission checks
  */
-export function BidActionButtons({ bidId: _bidId }: { bidId: string }) {
+export function BidActionButtons({ bidId }: { bidId: string }) {
   const { has, isLoaded } = useAuth()
+  void bidId
 
   if (!isLoaded) {
     return <div>Loading permissions...</div>
