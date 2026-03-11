@@ -81,6 +81,7 @@ export function UserProfileCard() {
  */
 export function BidActionButtons({ bidId }: { bidId: string }) {
   const { has, isLoaded } = useAuth()
+  void bidId
 
   if (!isLoaded) {
     return <div>Loading permissions...</div>
