@@ -27,6 +27,13 @@ from sqlalchemy.orm import sessionmaker
 # ── path setup ────────────────────────────────────────────────────────────────
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
+# Set env vars before importing backend modules that read them at import time.
+# DATABASE_URL=sqlite:// ensures the lifespan's create_all/run_seed uses an
+# in-memory database instead of creating an align.db file on disk.
+# ENABLE_SCHEDULER=false prevents the APScheduler from starting during tests.
+os.environ.setdefault("DATABASE_URL", "sqlite://")
+os.environ.setdefault("ENABLE_SCHEDULER", "false")
+
 from backend.database import Base, get_db  # noqa: E402
 from backend.main import app  # noqa: E402
 
@@ -60,16 +67,20 @@ def _override_get_db():
 
 # Create all tables once before any tests run.
 Base.metadata.create_all(bind=_engine)
-app.dependency_overrides[get_db] = _override_get_db
-
-# Use a single TestClient for the entire module to avoid event-loop teardown
-# issues that arise when creating a new TestClient (with lifespan) per test.
-_client = TestClient(app, raise_server_exceptions=True)
 
 
 @pytest.fixture(scope="module")
 def client() -> TestClient:
-    return _client
+    """Module-scoped TestClient that:
+    - Overrides the DB dependency to use the in-memory test engine.
+    - Runs FastAPI lifespan startup/shutdown inside a context manager so all
+      resources (including any shutdown handlers) are properly released.
+    - Clears the dependency override after all tests in the module finish.
+    """
+    app.dependency_overrides[get_db] = _override_get_db
+    with TestClient(app, raise_server_exceptions=True) as c:
+        yield c
+    app.dependency_overrides.pop(get_db, None)
 
 
 # ── helper to create an account → opportunity → bid for tests that need one ───
@@ -218,11 +229,11 @@ class TestComplianceAnswerGeneration:
     """Feature 2 – LLM-assisted compliance answer generation."""
 
     def test_generate_compliance_matrix_endpoint_exists(self, client: TestClient):
-        """POST /bids/{id}/generate-compliance-matrix returns JSON list."""
+        """POST /bids/{id}/generate-compliance-matrix returns 200 with an empty list when no documents exist."""
         _, bid_id = _create_bid(client)
         resp = client.post(f"/api/v1/bids/{bid_id}/generate-compliance-matrix")
-        # 200 (empty list) or 400 (no documents) – not 404
-        assert resp.status_code != 404
+        assert resp.status_code == 200
+        assert isinstance(resp.json(), list)
 
     def test_generate_compliance_answer_endpoint_exists(self, client: TestClient):
         """POST /bids/{id}/compliance/{item_id}/generate-answer returns 404 for missing item."""
@@ -284,7 +295,6 @@ class TestLeadTimeDatabase:
         data = resp.json()
         assert data["category"] == "switchgear"
         assert data["lead_weeks_min"] == 16
-        return data["id"]
 
     def test_get_lead_time_item(self, client: TestClient):
         """GET /lead-times/{id} returns the item."""
@@ -486,7 +496,6 @@ class TestFrameworkTracker:
         data = resp.json()
         assert data["name"] == "Crown Commercial Service Data Centre Framework"
         assert data["we_are_listed"] is True
-        return data["id"]
 
     def test_get_framework(self, client: TestClient):
         """GET /frameworks/{id} returns the entry."""
@@ -570,7 +579,8 @@ class TestExports:
         from backend.services.export_service import build_pursuit_pack_pdf
 
         class FakeOpp:
-            name = "Test Opportunity"
+            title = "Test Opportunity"
+            name = "Test Opportunity"  # export_service uses getattr(opp, "name", ...)
 
         class FakeBid:
             title = "Test Bid"
@@ -714,6 +724,7 @@ class TestProductionConfig:
         """Local storage saves and loads bytes correctly."""
         import importlib
         original_upload_dir = os.environ.get("UPLOAD_DIR")
+        original_storage_backend = os.environ.get("STORAGE_BACKEND")
         os.environ["UPLOAD_DIR"] = str(tmp_path)
         os.environ["STORAGE_BACKEND"] = "local"
         try:
@@ -728,12 +739,17 @@ class TestProductionConfig:
                 os.environ.pop("UPLOAD_DIR", None)
             else:
                 os.environ["UPLOAD_DIR"] = original_upload_dir
-            os.environ.pop("STORAGE_BACKEND", None)
+            if original_storage_backend is None:
+                os.environ.pop("STORAGE_BACKEND", None)
+            else:
+                os.environ["STORAGE_BACKEND"] = original_storage_backend
             importlib.reload(storage_mod)
 
     def test_local_storage_path_traversal_blocked(self, tmp_path):
         """Local storage rejects path-traversal keys."""
         import importlib
+        original_upload_dir = os.environ.get("UPLOAD_DIR")
+        original_storage_backend = os.environ.get("STORAGE_BACKEND")
         os.environ["UPLOAD_DIR"] = str(tmp_path)
         os.environ["STORAGE_BACKEND"] = "local"
         try:
@@ -742,8 +758,14 @@ class TestProductionConfig:
             with pytest.raises(ValueError, match="escapes the upload directory"):
                 storage_mod._local_resolve("../../etc/passwd")
         finally:
-            os.environ.pop("UPLOAD_DIR", None)
-            os.environ.pop("STORAGE_BACKEND", None)
+            if original_upload_dir is None:
+                os.environ.pop("UPLOAD_DIR", None)
+            else:
+                os.environ["UPLOAD_DIR"] = original_upload_dir
+            if original_storage_backend is None:
+                os.environ.pop("STORAGE_BACKEND", None)
+            else:
+                os.environ["STORAGE_BACKEND"] = original_storage_backend
             importlib.reload(storage_mod)
 
 
@@ -818,7 +840,8 @@ class TestAuth:
     def test_clerk_provider_requires_credentials(self):
         """When AUTH_PROVIDER=clerk and no token provided, returns 401."""
         import importlib
-        original = os.environ.get("AUTH_PROVIDER")
+        original_provider = os.environ.get("AUTH_PROVIDER")
+        original_clerk_issuer = os.environ.get("CLERK_ISSUER")
         os.environ["AUTH_PROVIDER"] = "clerk"
         os.environ.setdefault("CLERK_ISSUER", "https://test.clerk.accounts.dev")
         try:
@@ -828,16 +851,22 @@ class TestAuth:
                 auth_mod.get_current_user(credentials=None)
             assert exc_info.value.status_code == 401
         finally:
-            if original is None:
+            if original_provider is None:
                 os.environ.pop("AUTH_PROVIDER", None)
             else:
-                os.environ["AUTH_PROVIDER"] = original
+                os.environ["AUTH_PROVIDER"] = original_provider
+            if original_clerk_issuer is None:
+                os.environ.pop("CLERK_ISSUER", None)
+            else:
+                os.environ["CLERK_ISSUER"] = original_clerk_issuer
             importlib.reload(auth_mod)
 
     def test_auth0_provider_requires_credentials(self):
         """When AUTH_PROVIDER=auth0 and no token provided, returns 401."""
         import importlib
-        original = os.environ.get("AUTH_PROVIDER")
+        original_provider = os.environ.get("AUTH_PROVIDER")
+        original_auth0_domain = os.environ.get("AUTH0_DOMAIN")
+        original_auth0_audience = os.environ.get("AUTH0_AUDIENCE")
         os.environ["AUTH_PROVIDER"] = "auth0"
         os.environ.setdefault("AUTH0_DOMAIN", "test.auth0.com")
         os.environ.setdefault("AUTH0_AUDIENCE", "https://api.test.com")
@@ -848,10 +877,18 @@ class TestAuth:
                 auth_mod.get_current_user(credentials=None)
             assert exc_info.value.status_code == 401
         finally:
-            if original is None:
+            if original_provider is None:
                 os.environ.pop("AUTH_PROVIDER", None)
             else:
-                os.environ["AUTH_PROVIDER"] = original
+                os.environ["AUTH_PROVIDER"] = original_provider
+            if original_auth0_domain is None:
+                os.environ.pop("AUTH0_DOMAIN", None)
+            else:
+                os.environ["AUTH0_DOMAIN"] = original_auth0_domain
+            if original_auth0_audience is None:
+                os.environ.pop("AUTH0_AUDIENCE", None)
+            else:
+                os.environ["AUTH0_AUDIENCE"] = original_auth0_audience
             importlib.reload(auth_mod)
 
     def test_unknown_auth_provider_raises_500(self):
