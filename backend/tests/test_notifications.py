@@ -29,7 +29,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-class TestResults:
+class NotificationTestResults:
     """Track test results for reporting."""
     def __init__(self):
         self.passed = []
@@ -75,7 +75,7 @@ class TestResults:
         return len(self.failed) == 0
 
 
-async def test_user_settings(results: TestResults):
+async def check_user_settings(results: NotificationTestResults):
     """Test 1: User settings retrieval."""
     try:
         settings = await get_user_settings()
@@ -110,7 +110,7 @@ async def test_user_settings(results: TestResults):
         results.add_fail("User Settings", str(e))
 
 
-async def test_social_draft_creation(results: TestResults):
+async def check_social_draft_creation(results: NotificationTestResults):
     """Test 2: X/Twitter draft creation."""
     try:
         briefing_date = datetime.utcnow().strftime("%Y-%m-%d")
@@ -143,7 +143,7 @@ async def test_social_draft_creation(results: TestResults):
         results.add_fail("Social Draft", str(e))
 
 
-async def test_gmail_draft_creation(results: TestResults):
+async def check_gmail_draft_creation(results: NotificationTestResults):
     """Test 3: Gmail draft email creation."""
     try:
         from backend.core.config import settings
@@ -189,7 +189,7 @@ async def test_gmail_draft_creation(results: TestResults):
         results.add_fail("Gmail Draft", str(e))
 
 
-async def test_gmail_fetch(results: TestResults):
+async def check_gmail_fetch(results: NotificationTestResults):
     """Test 4: Gmail briefing fetch."""
     try:
         from backend.core.config import settings
@@ -215,7 +215,7 @@ async def test_gmail_fetch(results: TestResults):
         results.add_fail("Gmail Fetch", str(e))
 
 
-async def test_fallback_orchestration(results: TestResults):
+async def check_fallback_orchestration(results: NotificationTestResults):
     """Test 5: Full fallback notification orchestration."""
     try:
         briefing_date = datetime.utcnow().strftime("%Y-%m-%d")
@@ -246,7 +246,7 @@ async def test_fallback_orchestration(results: TestResults):
         results.add_fail("Fallback Orchestration", str(e))
 
 
-async def test_environment_config(results: TestResults):
+async def check_environment_config(results: NotificationTestResults):
     """Test 6: Environment configuration."""
     try:
         from backend.core.config import settings
@@ -286,7 +286,7 @@ async def test_environment_config(results: TestResults):
         results.add_fail("Environment Config", str(e))
 
 
-async def test_windows_paths(results: TestResults):
+async def check_windows_paths(results: NotificationTestResults):
     """Test 7: Windows file paths for desktop app."""
     try:
         # Check critical files exist
@@ -327,7 +327,7 @@ async def test_windows_paths(results: TestResults):
 
 async def run_all_tests():
     """Run all tests and print summary."""
-    results = TestResults()
+    results = NotificationTestResults()
     
     print("\n" + "="*70)
     print("FALLBACK NOTIFICATION SYSTEM - TEST SUITE")
@@ -337,13 +337,13 @@ async def run_all_tests():
     print("Running tests...\n")
     
     # Run all tests
-    await test_environment_config(results)
-    await test_windows_paths(results)
-    await test_user_settings(results)
-    await test_social_draft_creation(results)
-    await test_gmail_draft_creation(results)
-    await test_gmail_fetch(results)
-    await test_fallback_orchestration(results)
+    await check_environment_config(results)
+    await check_windows_paths(results)
+    await check_user_settings(results)
+    await check_social_draft_creation(results)
+    await check_gmail_draft_creation(results)
+    await check_gmail_fetch(results)
+    await check_fallback_orchestration(results)
     
     # Print summary
     success = results.print_summary()
