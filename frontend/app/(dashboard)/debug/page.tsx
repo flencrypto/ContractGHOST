@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Header from '@/components/layout/Header';
 import {
   Copy,
@@ -66,10 +66,14 @@ function CopyButton({ value }: { value: string }) {
   const [copied, setCopied] = useState(false);
 
   function handleCopy() {
-    navigator.clipboard.writeText(value).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
-    });
+    if (!navigator?.clipboard) return;
+    navigator.clipboard.writeText(value).then(
+      () => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1800);
+      },
+      () => { /* permission denied or non-secure context — ignore silently */ }
+    );
   }
 
   return (
@@ -105,6 +109,15 @@ function TokenRow({ label, value }: { label: string; value: string }) {
    Tab panels
 ───────────────────────────────────────────────────────────── */
 function ColorsPanel() {
+  const [fontTokens, setFontTokens] = useState({ sans: '…', mono: '…' });
+
+  useEffect(() => {
+    const computed = getComputedStyle(document.documentElement);
+    setFontTokens({
+      sans: computed.getPropertyValue('--font-sans').trim() || 'Inter, ui-sans-serif, system-ui',
+      mono: computed.getPropertyValue('--font-mono').trim() || 'JetBrains Mono, ui-monospace',
+    });
+  }, []);
   return (
     <div className="space-y-8">
       {/* Color Grid */}
@@ -161,8 +174,8 @@ function ColorsPanel() {
           ))}
           <TokenRow label="--radius-card"   value="8px" />
           <TokenRow label="--radius-button" value="6px" />
-          <TokenRow label="--font-sans"     value="Inter, ui-sans-serif, system-ui" />
-          <TokenRow label="--font-mono"     value="JetBrains Mono, ui-monospace" />
+          <TokenRow label="--font-sans"     value={fontTokens.sans} />
+          <TokenRow label="--font-mono"     value={fontTokens.mono} />
         </div>
       </div>
     </div>
@@ -741,7 +754,7 @@ export default function DebugPage() {
             <ChevronRight size={10} />
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-color-secondary" />
-              5 card variants
+              card variants
             </span>
           </div>
         </div>

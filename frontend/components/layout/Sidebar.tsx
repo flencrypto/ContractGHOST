@@ -62,7 +62,9 @@ const navGroups = [
       { href: '/blog', label: 'News Feed', Icon: Newspaper },
       { href: '/agents', label: 'Agents', Icon: Bot },
       { href: '/setup', label: 'Setup', Icon: Settings },
-      { href: '/debug', label: 'Debug', Icon: Bug },
+      ...(process.env.NODE_ENV !== 'production'
+        ? [{ href: '/debug', label: 'Debug', Icon: Bug }]
+        : []),
     ],
   },
 ];
