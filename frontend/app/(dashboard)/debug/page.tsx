@@ -79,7 +79,9 @@ function CopyButton({ value }: { value: string }) {
   return (
     <button
       onClick={handleCopy}
-      title={`Copy ${value}`}
+      title={copied ? 'Copied!' : `Copy ${value}`}
+      aria-label={copied ? 'Copied!' : `Copy ${value}`}
+      aria-live="polite"
       className="ml-auto p-1 rounded-md text-color-text-faint hover:text-color-primary hover:bg-color-primary/10 transition-all duration-150"
     >
       {copied ? <Check size={12} className="text-color-success" /> : <Copy size={12} />}
@@ -611,7 +613,7 @@ function EffectsPanel() {
             </div>
           </div>
           <div className="glass-card rounded-xl overflow-hidden">
-            <div className="h-24 grid-palantir bg-[length:40px_40px]"
+            <div className="h-24 bg-grid-palantir bg-[length:40px_40px]"
               style={{ backgroundImage: 'linear-gradient(rgba(0,229,255,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(0,229,255,0.06) 1px, transparent 1px)' }}
             />
             <div className="p-4">
