@@ -16,7 +16,35 @@ This guide walks you through deploying the **aLiGN frontend** to Vercel.
 
 ## Step 1: Deploy Backend (FastAPI)
 
-**Option A: Railway** (Recommended)
+**Option 0: Render Free + Neon Postgres** (fully free, no card required)
+
+A `render.yaml` blueprint at the repo root deploys the backend to Render's
+free tier using `backend/Dockerfile`.
+
+1. Create a free Postgres at [neon.tech](https://neon.tech) → copy the
+   **pooled** connection string (looks like
+   `postgresql://…@ep-xxx-pooler…/neondb?sslmode=require`).
+2. Click **Deploy to Render**:
+   `https://render.com/deploy?repo=https://github.com/flencrypto/xALiGN`
+   (or: render.com → New → Blueprint → pick this repo).
+3. Render reads `render.yaml` and prompts for the `sync: false` variables.
+   Paste:
+   - `DATABASE_URL` – Neon pooled URL from step 1
+   - `XAI_API_KEY` – your xAI key
+   - `CORS_ORIGINS` – `https://your-app.vercel.app`
+   - `CLERK_ISSUER`, `CLERK_JWKS_URL` – from your Clerk dashboard
+   - Google / X handle vars only if you use Gmail briefings
+4. Deploy. Backend URL: `https://xalign-backend.onrender.com`. Verify
+   `GET /api/v1/health` returns 200.
+
+Free-tier caveats:
+- Service **sleeps after 15 min idle**; first request takes ~30 s to wake.
+- No persistent disk → uploads with `STORAGE_BACKEND=local` are lost on
+  redeploy. Use Cloudflare R2 (S3-compatible) if durable storage matters.
+- APScheduler only runs while awake; use Fly.io if you need reliable
+  scheduled briefings.
+
+**Option A: Railway**
 1. Go to [railway.app](https://railway.app)
 2. Create new project → Deploy from GitHub
 3. Select your repository → Choose `backend` directory

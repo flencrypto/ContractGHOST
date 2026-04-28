@@ -1,0 +1,67 @@
+# Render Blueprint – free-tier deploy of the aLiGN FastAPI backend.
+#
+# One-click deploy:
+#   https://render.com/deploy?repo=https://github.com/flencrypto/xALiGN
+#
+# Notes on the free plan:
+#   - 512 MB RAM, sleeps after 15 min of inactivity (~30s cold start).
+#   - Persistent disks are NOT available on the free plan; uploads written
+#     with STORAGE_BACKEND=local are ephemeral. Switch to S3/R2 if you need
+#     durable file storage.
+#   - APScheduler jobs only run while the service is awake. If you rely on
+#     scheduled briefings, use a non-sleeping plan or an external cron.
+#
+# Database: provision a free Neon Postgres project (https://neon.tech) and
+# paste the pooled connection string into the DATABASE_URL env var in the
+# Render dashboard after the service is created.
+
+services:
+  - type: web
+    name: xalign-backend
+    runtime: docker
+    plan: free
+    region: frankfurt
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/v1/health
+    autoDeploy: true
+    envVars:
+      # ── Required: set these in the Render dashboard ─────────────────────
+      - key: DATABASE_URL
+        sync: false           # e.g. postgresql://…neon.tech/neondb?sslmode=require
+      - key: XAI_API_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false           # e.g. https://your-app.vercel.app
+
+      # ── Auth (Clerk) – required if AUTH_PROVIDER=clerk ──────────────────
+      - key: AUTH_PROVIDER
+        value: clerk
+      - key: CLERK_ISSUER
+        sync: false
+      - key: CLERK_JWKS_URL
+        sync: false
+
+      # ── Webhooks ────────────────────────────────────────────────────────
+      - key: WEBHOOK_SECRET
+        generateValue: true
+
+      # ── Storage (free tier: local = ephemeral) ──────────────────────────
+      - key: STORAGE_BACKEND
+        value: local
+      - key: UPLOAD_DIR
+        value: /tmp/uploads
+
+      # ── Scheduler / integrations (optional) ─────────────────────────────
+      - key: ENABLE_SCHEDULER
+        value: "true"
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REFRESH_TOKEN
+        sync: false
+      - key: BRIEFING_EMAIL_SUBJECT
+        value: GLOBAL DATA CENTRE INTELLIGENCE BRIEFING
+      - key: X_HANDLE
+        value: TheMrFlen
